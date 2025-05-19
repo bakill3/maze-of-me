@@ -17,11 +17,86 @@ Players awaken inside a mysterious maze, progressively uncovering memories, expe
 - **Act 1: Awakening**  
   Rooms and interactions reflect neutral or positive emotions. Warm, upbeat music enhances the experience.
 
-- **Act 2: Echoes**  
+- **Act 2: Whispers**  
   Encounters become unsettling, referencing real-life events, relationships, and unresolved emotions from collected user data. NPCs become more confrontational, creating tension.
 
 - **Act 3: Collapse & Reflection**  
   Reality breaks down, music distorts, and players face a profound psychological confrontation with their inner selves, culminating in self-reflection or a reset narrative loop.
+
+---
+
+## 🧠 System Architecture Diagram
+
+```mermaid
+graph TD
+  subgraph OAuth["🔐 OAuth Providers"]
+    Spotify[Spotify OAuth]
+    Google[Google OAuth]
+  end
+
+  subgraph Profile["🧍 User Profile"]
+    Input[Manual Info: name, DOB, traits]
+    SpotifyData[Spotify Top Tracks + Audio Features]
+    GoogleCal[Google Calendar Events]
+    YouTube[YouTube Watch History]
+    Email[Google Profile Info]
+  end
+
+  subgraph CLI["🖥️ Maze CLI"]
+    Start[Start Maze]
+    Move[Choose Direction]
+    Talk[Talk to NPC]
+    UX[CLI Help, Typewriter FX, Ctrl+C Exit]
+  end
+
+  subgraph LLM["🧠 LLaMA (Local AI)"]
+    PromptGen[Build Prompt from Profile]
+    RoomGen[Generate Room Text]
+    NPCGen[Generate NPC Dialogue]
+  end
+
+  subgraph Audio["🔊 Audio Engine"]
+    MoodDetect[Detect Mood via Spotify Energy]
+    TrackPlay[Play YouTube Preview via yt-dlp]
+    Cache[Preload Tracks Locally]
+  end
+
+  subgraph Future["🚧 Planned Features"]
+    FB[Facebook OAuth]
+    IG[Instagram OAuth]
+    NPCFriends[NPCs from Real People]
+  end
+
+  Spotify --> SpotifyData
+  Google --> Email
+  Google --> GoogleCal
+  Google --> YouTube
+
+  Input --> Profile
+  SpotifyData --> Profile
+  GoogleCal --> Profile
+  YouTube --> Profile
+  Email --> Profile
+
+  Profile --> PromptGen
+  PromptGen --> RoomGen
+  PromptGen --> NPCGen
+
+  RoomGen --> Start
+  NPCGen --> Talk
+
+  Start --> Move
+  Move --> RoomGen
+  Talk --> NPCGen
+
+  Profile --> MoodDetect
+  MoodDetect --> TrackPlay
+  TrackPlay --> Cache
+
+  FB --> Future
+  IG --> Future
+  Future --> NPCFriends
+
 
 ---
 
