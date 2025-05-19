@@ -96,7 +96,7 @@ graph TD
   FB --> Future
   IG --> Future
   Future --> NPCFriends
-
+```
 
 ---
 
