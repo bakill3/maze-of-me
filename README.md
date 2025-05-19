@@ -25,6 +25,68 @@ Players awaken inside a mysterious maze, progressively uncovering memories, expe
 
 ---
 
+## 🔑 Current Features & Implementation
+
+### ✅ User Profile Collection
+- **Manual Data Entry**: Full name, age, date of birth (EU format: DD-MM-YYYY), height (flexible parsing in meters or centimeters), weight, eye color, hair color, and skin color.
+- **Robust Input Handling**: Continuous validation loops, clear error messages, and confirmation steps ensure accurate data collection.
+
+### ✅ OAuth Integration (Spotify & Google)
+- **Spotify Integration**: 
+  - Authentication via OAuth with `spotipy`
+  - Collection of user's top tracks, artists, and playlists
+  - Analysis of audio features (valence, energy, tempo)
+  - 30-second song previews identified for later retrieval (due to Spotify limitations, actual playback involves YouTube downloading)
+
+- **Google Integration**:
+  - OAuth authentication with `google-auth`
+  - Fetching of user profile info (name, email, profile picture)
+  - Import of Google Calendar events summaries
+  - Optional import of YouTube watch history for deeply personalized interactions
+
+### ✅ Audio Playback Integration
+- **YouTube Preloading**:
+  - Using `yt-dlp` to automatically download audio previews matching the user's Spotify top tracks
+  - Dynamic playback through `pygame.mixer` and/or `pydub`
+
+- **Emotion-Based Soundtracking**:
+  - Music selections are context-sensitive, aligning song moods (determined by Spotify's energy/valence metrics) with room atmospheres.
+
+### ✅ Dynamic Room & Maze Generation
+- Room descriptions and layouts are dynamically generated using AI prompts tailored to user data and emotional contexts.
+- Events tied to real-world context: Operating system date/time, calendar events, YouTube history, Spotify lyrics, etc.
+
+### ✅ NPC Interactions (AI-Powered)
+- **NPC Dialogue**:
+  - Powered by locally-run LLaMA 3 models (`llama.cpp`, Ollama, LM Studio)
+  - Dialogue personalized with names of real contacts, phrases from YouTube and Spotify data, and generated hallucinated memories
+
+- **Interaction Mechanics**:
+  - Simple dialogue choices to interact with NPCs:
+    - `"What are you talking about?"`
+    - `"Stay silent"`
+    - `"You’re not real."`
+
+### ✅ Enhanced User Experience
+- Comprehensive CLI UX: robust parsing, clear help commands (`h`, `?`), graceful Ctrl+C exits, and terminal clearing for immersive sessions.
+- Detailed logging via Python’s built-in `logging` module for debugging and future analytics.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Programming Language**: Python 3.13.3
+- **CLI Engine**: Custom-built (`input()` and `print()` loops)
+- **OAuth Libraries**: `spotipy`, `google-auth`, `requests-oauthlib`, `facebook-sdk` (planned future)
+- **Audio Playback**: `pygame`, `pydub`, `simpleaudio`
+- **Audio Preloading**: `yt-dlp` for downloading Spotify-linked YouTube audio
+- **AI Integration**: Local LLM via `llama-cpp-python` (LLaMA 3), Ollama, LM Studio
+- **Data Management**: JSON file storage (`user_profile.json`)
+- **Utilities & Parsing**: Custom utilities for JSON I/O, input parsing, OS and datetime detection
+- **Cross-Platform Compatibility**: Tested on Windows, Linux, macOS
+
+---
+
 ## 🧠 System Architecture Diagram
 
 ```mermaid
@@ -97,68 +159,6 @@ graph TD
   IG --> Future
   Future --> NPCFriends
 ```
-
----
-
-## 🔑 Current Features & Implementation
-
-### ✅ User Profile Collection
-- **Manual Data Entry**: Full name, age, date of birth (EU format: DD-MM-YYYY), height (flexible parsing in meters or centimeters), weight, eye color, hair color, and skin color.
-- **Robust Input Handling**: Continuous validation loops, clear error messages, and confirmation steps ensure accurate data collection.
-
-### ✅ OAuth Integration (Spotify & Google)
-- **Spotify Integration**: 
-  - Authentication via OAuth with `spotipy`
-  - Collection of user's top tracks, artists, and playlists
-  - Analysis of audio features (valence, energy, tempo)
-  - 30-second song previews identified for later retrieval (due to Spotify limitations, actual playback involves YouTube downloading)
-
-- **Google Integration**:
-  - OAuth authentication with `google-auth`
-  - Fetching of user profile info (name, email, profile picture)
-  - Import of Google Calendar events summaries
-  - Optional import of YouTube watch history for deeply personalized interactions
-
-### ✅ Audio Playback Integration
-- **YouTube Preloading**:
-  - Using `yt-dlp` to automatically download audio previews matching the user's Spotify top tracks
-  - Dynamic playback through `pygame.mixer` and/or `pydub`
-
-- **Emotion-Based Soundtracking**:
-  - Music selections are context-sensitive, aligning song moods (determined by Spotify's energy/valence metrics) with room atmospheres.
-
-### ✅ Dynamic Room & Maze Generation
-- Room descriptions and layouts are dynamically generated using AI prompts tailored to user data and emotional contexts.
-- Events tied to real-world context: Operating system date/time, calendar events, YouTube history, Spotify lyrics, etc.
-
-### ✅ NPC Interactions (AI-Powered)
-- **NPC Dialogue**:
-  - Powered by locally-run LLaMA 3 models (`llama.cpp`, Ollama, LM Studio)
-  - Dialogue personalized with names of real contacts, phrases from YouTube and Spotify data, and generated hallucinated memories
-
-- **Interaction Mechanics**:
-  - Simple dialogue choices to interact with NPCs:
-    - `"What are you talking about?"`
-    - `"Stay silent"`
-    - `"You’re not real."`
-
-### ✅ Enhanced User Experience
-- Comprehensive CLI UX: robust parsing, clear help commands (`h`, `?`), graceful Ctrl+C exits, and terminal clearing for immersive sessions.
-- Detailed logging via Python’s built-in `logging` module for debugging and future analytics.
-
----
-
-## 🛠️ Tech Stack
-
-- **Programming Language**: Python 3.13.3
-- **CLI Engine**: Custom-built (`input()` and `print()` loops)
-- **OAuth Libraries**: `spotipy`, `google-auth`, `requests-oauthlib`, `facebook-sdk` (planned future)
-- **Audio Playback**: `pygame`, `pydub`, `simpleaudio`
-- **Audio Preloading**: `yt-dlp` for downloading Spotify-linked YouTube audio
-- **AI Integration**: Local LLM via `llama-cpp-python` (LLaMA 3), Ollama, LM Studio
-- **Data Management**: JSON file storage (`user_profile.json`)
-- **Utilities & Parsing**: Custom utilities for JSON I/O, input parsing, OS and datetime detection
-- **Cross-Platform Compatibility**: Tested on Windows, Linux, macOS
 
 ---
 
