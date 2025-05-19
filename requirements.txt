@@ -8,3 +8,4 @@ pydub
 simpleaudio
 llama-cpp-python
 google-auth-oauthlib>=0.8.0
+colorama

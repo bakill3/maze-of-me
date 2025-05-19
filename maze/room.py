@@ -1,8 +1,4 @@
-# File: maze/room.py
-
-from dataclasses import dataclass
-
-@dataclass
 class Room:
-    id: str
-    description: str
+    def __init__(self, desc: str, theme: str):
+        self.description = desc
+        self.theme       = theme

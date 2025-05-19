@@ -1,101 +1,144 @@
-# File: oauth/spotify.py
+"""
+Very small Spotify collector:
 
-import webbrowser
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
-from spotipy import Spotify
-from spotipy.oauth2 import SpotifyOAuth
+• authenticate()            – OAuth code flow in a browser
+• fetch_and_save()          – store top-tracks (+ audio-features) in user_profile.json
+"""
+
+from __future__ import annotations
+import json, os, time, webbrowser, threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import Any, Final, Optional
 
-from config import Config
+import requests
+from requests_oauthlib import OAuth2Session
+
+from config        import Config
 from utils.json_io import load_json, save_json
 
-class OAuthCallbackHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        parsed = urlparse(self.path)
-        params = parse_qs(parsed.query)
-        code = params.get("code", [None])[0]
-        # Send a simple response page
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write(b"<html><body><h1>Authentication complete.</h1>"
-                         b"You may close this window.</body></html>")
-        # Store the auth code on the server object
-        self.server.auth_code = code
 
-    def log_message(self, format, *args):
-        # Suppress HTTP server logs
+_REDIRECT_URI: Final[str] = "http://127.0.0.1:8888/spotify_callback"
+_SCOPES:        Final[list[str]] = ["user-top-read"]
+_AUTH:          Final[str] = "https://accounts.spotify.com/authorize"
+_TOKEN:         Final[str] = "https://accounts.spotify.com/api/token"
+
+_CALLBACK_CODE: Optional[str] = None   # set by mini HTTP server
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Tiny one-shot HTTP server to catch the redirect
+# ──────────────────────────────────────────────────────────────────────────
+class _CallbackHandler(BaseHTTPRequestHandler):
+    def do_GET(self):  # noqa: N802
+        global _CALLBACK_CODE
+        if "code=" in self.path:
+            _CALLBACK_CODE = self.path.split("code=")[-1].split("&")[0]
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"<h3>Spotify authentication complete, you can close this tab.</h3>")
+        else:
+            self.send_response(400); self.end_headers()
+
+    def log_message(self, *_):  # silence console spam
         return
 
+
+def _start_callback_server() -> HTTPServer:
+    server = HTTPServer(("127.0.0.1", 8888), _CallbackHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Collector
+# ──────────────────────────────────────────────────────────────────────────
 class SpotifyCollector:
-    SCOPE = "user-top-read user-read-private"
+    def __init__(self) -> None:
+        self.session: Optional[OAuth2Session] = None
+        self.token:   Optional[dict[str, Any]] = None
 
-    def __init__(self):
-        self.sp_oauth = SpotifyOAuth(
+    # ..........................................................
+    def authenticate(self) -> None:
+        """
+        Opens the browser.  If the redirect isn’t captured within 60 s,
+        falls back to asking the user to paste the URL.
+        """
+        oauth = OAuth2Session(
             client_id=Config.SPOTIFY_CLIENT_ID,
-            client_secret=Config.SPOTIFY_CLIENT_SECRET,
-            redirect_uri="http://127.0.0.1:8888/callback",
-            scope=self.SCOPE
+            redirect_uri=_REDIRECT_URI,
+            scope=_SCOPES,
         )
-        self.sp = None
+        auth_url, _ = oauth.authorization_url(_AUTH)
 
-    def authenticate(self):
-        """
-        Opens the browser for Spotify login, then starts a temporary
-        HTTP server on localhost:8888 to catch the redirect and grab the code.
-        """
-        auth_url = self.sp_oauth.get_authorize_url()
-        webbrowser.open(auth_url, new=1)
+        # 1) start local callback server
+        srv = _start_callback_server()
 
-        server = HTTPServer(("127.0.0.1", 8888), OAuthCallbackHandler)
-        # Handle a single request, then shutdown
-        server.handle_request()
-        code = getattr(server, "auth_code", None)
+        # 2) open browser
+        print("🔑 Spotify OAuth… opening browser for login…")
+        webbrowser.open(auth_url, new=2, autoraise=True)
+
+        # 3) wait up to 60 s for redirect
+        timeout = time.time() + 60
+        while _CALLBACK_CODE is None and time.time() < timeout:
+            time.sleep(0.3)
+
+        srv.shutdown()
+
+        code = _CALLBACK_CODE
+        if code is None:
+            # manual fallback
+            print("⚠️  Couldn’t capture the redirect automatically.")
+            url = input("Paste the FULL redirect URL you were sent to: ").strip()
+            if "code=" in url:
+                code = url.split("code=")[-1].split("&")[0]
+
         if not code:
             raise RuntimeError("Failed to receive auth code from Spotify.")
 
-        token_info = self.sp_oauth.get_access_token(code, as_dict=True)
-        self.sp = Spotify(auth=token_info["access_token"])
-        print("✅ Spotify authentication successful.")
+        # 4) exchange for token
+        self.session = OAuth2Session(Config.SPOTIFY_CLIENT_ID, redirect_uri=_REDIRECT_URI)
+        self.token   = self.session.fetch_token(
+            _TOKEN,
+            client_secret=Config.SPOTIFY_CLIENT_SECRET,
+            code=code,
+        )
 
-    def fetch_and_save(self):
-        """
-        Fetch top tracks and audio features (if permitted), then
-        merge into user_profile.json under the 'spotify' key.
-        """
-        if not self.sp:
-            raise RuntimeError("Not authenticated. Call .authenticate() first.")
+    # ..........................................................
+    def _api_get(self, endpoint: str, params: dict[str, Any] | None = None) -> Any:
+        if not self.session or not self.token:
+            raise RuntimeError("authenticate() first.")
+        url = f"https://api.spotify.com/v1/{endpoint.lstrip('/')}"
+        resp = self.session.get(url, params=params or {})
+        resp.raise_for_status()
+        return resp.json()
 
-        profile_path = Path(Config.PROFILE_PATH)
-        profile = load_json(profile_path) or {}
+    # ..........................................................
+    def fetch_and_save(self) -> None:
+        if not self.session:
+            raise RuntimeError("authenticate() first.")
 
-        # Top tracks
-        items = self.sp.current_user_top_tracks(limit=20, time_range="medium_term")["items"]
-        track_ids = [t["id"] for t in items]
+        top = self._api_get("me/top/tracks", {"limit": 20})["items"]
+        tracks = [
+            {
+                "id": t["id"],
+                "name": t["name"],
+                "artists": [a["name"] for a in t["artists"]],
+                "uri": t["uri"],
+            }
+            for t in top
+        ]
 
-        # Try audio features
-        audio_features = {}
+        # optional audio-features (ignore 403 if quota exhausted)
+        feats: dict[str, Any] = {}
         try:
-            feats = self.sp.audio_features(track_ids)
-            audio_features = {f["id"]: f for f in feats if f}
-        except Exception:
-            pass  # quietly ignore
+            ids = ",".join(t["id"] for t in tracks)
+            feats_raw = self._api_get("audio-features", {"ids": ids})["audio_features"]
+            feats = {f["id"]: f for f in feats_raw if f}
+        except requests.HTTPError:
+            pass
 
-        spotify_data = {
-            "top_tracks": [
-                {
-                    "id": t["id"],
-                    "name": t["name"],
-                    "artists": [a["name"] for a in t["artists"]],
-                    "uri": t["uri"]
-                }
-                for t in items
-            ],
-            "audio_features": audio_features
-        }
-
-        profile["spotify"] = spotify_data
-        save_json(profile_path, profile)
-        print(f"✅ Spotify data saved under '{profile_path}'.")
+        # merge into profile JSON
+        prof = load_json(Path(Config.PROFILE_PATH))
+        prof["spotify"] = {"top_tracks": tracks, "audio_features": feats}
+        save_json(Path(Config.PROFILE_PATH), prof)
