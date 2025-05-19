@@ -1,0 +1,47 @@
+maze_of_me/
+├─ cli.py                     # Main entrypoint and command loop
+├─ config.py                  # Load API keys/settings from .env
+├─ user_profile.py                 # UserProfile class: collect, validate, serialize
+├─ user_profile.json          # Saved profile (generated at first run)
+├─ requirements.txt           # Python dependencies
+├─ README.md                  # Overview & instructions
+
+├─ oauth/                     # OAuth collectors (stubbed for now)
+│  ├─ __init__.py
+│  ├─ spotify.py              # SpotifyCollector
+│  ├─ google.py               # GoogleCollector
+│  ├─ facebook.py             # FacebookCollector
+│  └─ instagram.py            # InstagramCollector
+
+├─ audio/                     # Audio preview downloader & player
+│  ├─ __init__.py
+│  └─ player.py               # AudioPlayer wrapper
+
+├─ maze/                      # Maze logic & room generation
+│  ├─ __init__.py
+│  ├─ room.py                 # Room data structure
+│  └─ generator.py            # MazeGenerator class
+
+├─ llm/                       # LLM prompt builder & interface
+│  ├─ __init__.py
+│  ├─ prompt_builder.py       # Build context + prompt JSON
+│  └─ model_interface.py      # llama.cpp / Ollama wrapper
+
+└─ utils/                     # Shared helpers
+   ├─ __init__.py
+   ├─ json_io.py              # load_json / save_json helpers
+   └─ platform_time.py        # OS detection, datetime helpers
+
+del user_profile.json
+del .cache*
+
+https://developers.facebook.com/apps/1116510506901375/business-login/settings/
+https://www.spotify.com/us/account/apps/
+https://console.cloud.google.com/welcome?inv=1&invt=Abxxgg&project=testing-places-442209
+
+https://myaccount.google.com/security?gar=WzEyMF0&hl=en&utm_source=OGB&utm_medium=act
+
+
+ns1.wtservers.com
+ns2.wtservers.com
+ns3.wtservers.com

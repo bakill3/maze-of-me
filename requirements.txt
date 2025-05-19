@@ -1,0 +1,10 @@
+python-dotenv
+spotipy
+google-auth
+requests-oauthlib
+facebook-sdk
+pygame
+pydub
+simpleaudio
+llama-cpp-python
+google-auth-oauthlib>=0.8.0
