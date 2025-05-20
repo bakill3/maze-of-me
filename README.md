@@ -165,8 +165,15 @@ graph TD
 ## Alpha version (spotify auth + random music playlists on each room)
 
 
-https://github.com/user-attachments/assets/a6890edb-5e31-453a-946f-791a08f5d106
+https://github.com/user-attachments/assets/490cff18-db04-40df-bba9-e7dd57f322e3
 
+
+---
+
+## Current Version
+
+
+https://github.com/user-attachments/assets/698851ac-2eb7-4303-92b2-5745fd6d150b
 
 ---
 
