@@ -35,4 +35,4 @@ def _run(prompt: str, max_tokens: int, temperature: float) -> str:
         return ""
 
 def query_npc(prompt: str) -> str:
-    return _run(prompt, max_tokens=60, temperature=0.9)
+    return _run(prompt, max_tokens=60, temperature=0.8)
