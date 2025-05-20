@@ -162,6 +162,10 @@ graph TD
 
 ---
 
+## Alpha version (spotify login + random music from user's playlist on each room)
+https://github.com/user-attachments/assets/a6890edb-5e31-453a-946f-791a08f5d106
+---
+
 ## 🚀 Installation & Running Locally
 
 ### 1. Clone the repository:
