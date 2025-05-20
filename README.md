@@ -162,7 +162,7 @@ graph TD
 
 ---
 
-## Alpha version (spotify login + random music from user's playlist on each room)
+## Alpha version (spotify auth + random music playlists on each room)
 
 
 https://github.com/user-attachments/assets/a6890edb-5e31-453a-946f-791a08f5d106
@@ -175,7 +175,7 @@ https://github.com/user-attachments/assets/a6890edb-5e31-453a-946f-791a08f5d106
 ### 1. Clone the repository:
 
 ```bash
-git clone [your-repo-link]
+git clone [https://github.com/bakill3/maze-of-me.git]
 cd maze_of_me
 ```
 
