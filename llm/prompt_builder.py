@@ -1,64 +1,61 @@
-# ──────────────────────────────────────────────────────────────────────────────
-# File: llm/prompt_builder.py          (2025-05-20  • stronger NPC prompting)
-# ──────────────────────────────────────────────────────────────────────────────
-"""
-Prompt helpers for Maze-of-Me.
-
-• Rooms use fixed JSON templates (see maze/rooms.json).
-• NPC lines come from the local LLM ─ but *must* inject exactly ONE
-  personal hook token such as  <<name>>  or  <<youtube>>.
-"""
-
 from __future__ import annotations
 from textwrap import dedent
 import re, random
-from typing import Dict
+from typing import Dict, List
 
-# ╭──────────────────────── profile blurb ───────────────────────╮
 def _profile_blurb(profile: dict) -> str:
     gp = profile.get("google", {}).get("profile", {})
     name  = gp.get("name", "Unknown")
     email = gp.get("email", "—")
     return f"{name} · {email}"
 
-# ╭──────────────────────── fall-back helpers ───────────────────╮
 _HOOK_TOKEN_RE = re.compile(r"<<(\w+)>>")
 
-def _fallback_with_hook(hooks: Dict[str, str]) -> str:
-    """Deterministic, but rotates through hooks for variety."""
-    if not hooks:
-        return "The figure studies you in silence…"
-
+def _fallback_with_hook(hooks: Dict[str, str], player_emotions: List[str]=None, contacts: List[str]=None) -> str:
+    # Add more interesting "fallbacks" using hooks, emotions, and contacts.
+    if not hooks: return "The figure studies you in silence…"
     key, value = random.choice(list(hooks.items()))
-    options = {
-        "name":      f"{value}, the maze still echoes your name.",
-        "event":     f"Tick-tock…  {value} draws ever nearer.",
-        "youtube":   f"Still humming “{value}”, aren’t you?",
-        "time":      f"It is {value}.  Shadows stretch and wait.",
-    }
-    return options.get(key, f"The maze whispers of {value}.")
+    responses = []
+    if key == "contact" and contacts:
+        responses.append(f"Maybe you should talk to {value} again?")
+        responses.append(f"Your mind wanders to {value}. Miss them?")
+    if player_emotions:
+        mood = player_emotions[-1]
+        responses.append(f"I sense you're feeling {mood.lower()}. Why do you think that is?")
+    responses += [
+        f"{value}, the maze still echoes your name.",
+        f"Counting down: {hooks.get('upcoming', '')}.",
+        f"It is {hooks.get('time', '')}. Shadows stretch and wait.",
+        f"Still humming “{hooks.get('youtube', '')}”, aren’t you?",
+        f"Are you prepared for {hooks.get('event', '')}?",
+        f"{hooks.get('special', '')}... will you be ready?",
+        f"{hooks.get('birthday', '')}... Time doesn't stop, does it?",
+    ]
+    return random.choice([resp for resp in responses if resp.strip()]) or "You feel a presence, but it says nothing."
 
-# ╭───────────────────────── prompt builders ────────────────────╮
 def build_npc_prompt(
     profile: dict,
     last_room_desc: str,
     hooks: Dict[str, str],
+    dialogue_key: str = None,
+    player_history: str = "",
+    player_emotions: List[str] = None,
+    contacts: List[str] = None
 ) -> str:
     """
-    Prompt for **The Whisperer** (NPC).
-
-    Requirements given to the model:
-      • Output ONE cryptic sentence, 6-15 words, second-person OR first-person.
-      • MUST include *exactly ONE* token that appears in the hooks list,
-        copying it verbatim, e.g.  <<name>>
-      • No extra meta-text, no code-block, no apologies.
-      • End with <END>  (so the caller can use it as a stop token).
+    Prompt for **The Whisperer** (NPC) -- with memory, emotion, and contact intent.
     """
-    sys_msg = dedent("""
-        You are **The Whisperer**, a disembodied voice inside a psychological maze.
-        Respond with exactly ONE short, unsettling line (6-15 words).
-        Copy *one* of the USER hook tokens (e.g. <<name>>) **unchanged**.
-        No introductions, no “Sure”, no meta commentary. End with <END>.
+    recent_emotions = ", ".join(player_emotions or []) or "none"
+    contacts_line = ", ".join(contacts or [])
+    sys_msg = dedent(f"""
+        You are **The Whisperer**, a cryptic—but subtly human—figure in a psychological maze.
+        Respond with exactly ONE mysterious, unsettling, or caring line (6-26 words).
+        Use *exactly ONE* hook token from the list (e.g. <<contact>>, <<special>>, <<birthday>>, <<name>>), inserting its value verbatim.
+        The player just spoke to you with intent: '{dialogue_key or ""}'.
+        List of player contacts: {contacts_line}
+        Recent player emotions: {recent_emotions}
+        If you want, you can refer to contacts, prior feelings, or previous NPCs—this is encouraged for realism.
+        Never break character. Never repeat the room description. End with <END>.
     """).strip()
 
     hook_block = "\n".join(f"<<{k}>> = {v}" for k, v in hooks.items()) \
@@ -67,11 +64,14 @@ def build_npc_prompt(
     user_msg = dedent(f"""
         Player profile: {_profile_blurb(profile)}
 
-        Personal hooks you may reference:
+        Personal hooks you may reference (choose one, insert verbatim!):
         {hook_block}
 
-        Current room description (for atmosphere, not to be repeated verbatim):
+        Current room description:
         "{last_room_desc}"
+
+        Player last dialogue/action: "{dialogue_key or 'none'}"
+        Previous interaction: "{player_history or 'none'}"
 
         Your single mysterious sentence:
     """).strip()
@@ -82,26 +82,17 @@ def build_npc_prompt(
         "### ASSISTANT ###\n"
     )
 
-# ╭──────────────────────── validator ───────────────────────────╮
-def validate_npc_line(text: str, hooks: Dict[str, str]) -> str:
-    """
-    • Replace the first <<token>> with its real value.
-    • If the model ignored hooks or produced garbage, fall back.
-    • Always return a trimmed plain string (no <END>).
-    """
+def validate_npc_line(text: str, hooks: Dict[str, str], player_emotions: List[str]=None, contacts: List[str]=None) -> str:
     raw = (text or "").strip()
     if not raw:
-        return _fallback_with_hook(hooks)
-
+        return _fallback_with_hook(hooks, player_emotions, contacts)
     m = _HOOK_TOKEN_RE.search(raw)
     if not m:
-        return _fallback_with_hook(hooks)
-
+        return _fallback_with_hook(hooks, player_emotions, contacts)
     key = m.group(1)
     value = hooks.get(key, "")
     if not value:
-        return _fallback_with_hook(hooks)
-
+        return _fallback_with_hook(hooks, player_emotions, contacts)
     line = _HOOK_TOKEN_RE.sub(value, raw, count=1)
     line = line.replace("<END>", "").strip()
-    return line or _fallback_with_hook(hooks)
+    return line or _fallback_with_hook(hooks, player_emotions, contacts)
