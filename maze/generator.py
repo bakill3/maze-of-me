@@ -73,6 +73,13 @@ class MazeGenerator:
         self._recent_dialogues: Deque[str] = deque(maxlen=10)
         self._emotion_feedback = deque(maxlen=8)
         self._contacts: List[str] = []
+        self._yt_channels = self.pro.get("google", {}).get("youtube_channels", [])
+        self._gmail = self.pro.get("google", {}).get("gmail_subjects", [])
+        self._tasks = self.pro.get("google", {}).get("tasks", [])
+        self._playlists = self.pro.get("spotify", {}).get("playlists", [])
+        self._genres = self.pro.get("spotify", {}).get("genres", [])
+        self._top_artist = self.pro.get("spotify", {}).get("top_artist", "")
+        self._liked_tracks = self.pro.get("spotify", {}).get("liked_tracks", [])
 
         # Load contacts (names only for hooks)
         try:
@@ -144,6 +151,10 @@ class MazeGenerator:
         self._next_room, self._next_npc = self._build_pair_blocking()
 
     def _rand(self, seq): return random.choice(seq)
+    
+    def set_progress(self, visited, moods):
+        self._visited = visited
+        self._moods = moods
 
     def _make_room_sentence(self, mood: str) -> tuple[str, str]:
         hooks = [
@@ -155,6 +166,13 @@ class MazeGenerator:
         if self._special_events: hooks.append(self._special_events[0])
         if self._upcoming_events: hooks.append(f"{self._upcoming_events[0]['summary']} in {self._upcoming_events[0]['days']} days")
         if self._contacts: hooks.append(self._contacts[0])
+        if self._yt_channels: hooks.append(self._yt_channels[0])
+        if self._gmail: hooks.append(self._gmail[0])
+        if self._tasks: hooks.append(self._tasks[0])
+        if self._playlists: hooks.append(self._playlists[0])
+        if self._genres: hooks.append(self._genres[0])
+        if self._top_artist: hooks.append(self._top_artist)
+        if self._liked_tracks: hooks.append(self._liked_tracks[0])
         hooks = [h for h in hooks if h]
         hook = random.choice(hooks) if hooks else "something unsaid"
 

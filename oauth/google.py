@@ -52,6 +52,8 @@ class GoogleCollector:
         "https://www.googleapis.com/auth/calendar.readonly",
         "https://www.googleapis.com/auth/youtube.readonly",
         "https://www.googleapis.com/auth/contacts.readonly",
+        "https://www.googleapis.com/auth/gmail.readonly",     
+        "https://www.googleapis.com/auth/tasks.readonly",      
     ]
 
     CLIENT_SECRETS_FILE = Path(__file__).parent.parent / "google_client_secret.json"
@@ -123,17 +125,17 @@ class GoogleCollector:
             print(f"⚠️ Google calendar fetch error: {e}")
             events = []
 
-        # 3) YouTube watch history (last 10 via Activities API)
+        # 3) YouTube watch history (last 10 via Activities API, including channelTitle)
         try:
             yt = build("youtube", "v3", credentials=self.creds, cache_discovery=False)
             acts = (
                 yt.activities()
-                  .list(
-                      part="snippet,contentDetails",
-                      mine=True,
-                      maxResults=10
-                  )
-                  .execute()
+                .list(
+                    part="snippet,contentDetails",
+                    mine=True,
+                    maxResults=10
+                )
+                .execute()
             )
             items = acts.get("items", [])
             yt_history = []
@@ -141,6 +143,7 @@ class GoogleCollector:
                 snip = it.get("snippet", {})
                 cd   = it.get("contentDetails", {})
                 title = snip.get("title", "Untitled")
+                channel_title = snip.get("channelTitle", "")
                 # Try to pull a videoId from any contentDetails subfield
                 video_id = (
                     cd.get("upload", {}).get("videoId")
@@ -148,10 +151,15 @@ class GoogleCollector:
                     or cd.get("like", {}).get("resourceId", {}).get("videoId")
                 )
                 url = f"https://youtu.be/{video_id}" if video_id else ""
-                yt_history.append({"title": title, "url": url})
+                yt_history.append({
+                    "title": title,
+                    "url": url,
+                    "channelTitle": channel_title
+                })
         except HttpError as e:
             print(f"⚠️ YouTube history fetch error: {e}")
             yt_history = []
+
 
         # 4) Google contacts (top 10, name/email/birthday)
         try:
@@ -176,6 +184,45 @@ class GoogleCollector:
         except Exception as e:
             print(f"⚠️ Google contacts fetch error: {e}")
             contact_data = []
+        
+        # 5) Gmail (last 5 subjects)
+        try:
+            gmail = build('gmail', 'v1', credentials=self.creds, cache_discovery=False)
+            msgs = gmail.users().messages().list(userId='me', maxResults=5, labelIds=['INBOX']).execute()
+            subjects = []
+            for msg in msgs.get('messages', []):
+                msgdata = gmail.users().messages().get(userId='me', id=msg['id'], format='metadata', metadataHeaders=['Subject']).execute()
+                for header in msgdata.get('payload', {}).get('headers', []):
+                    if header['name'] == 'Subject':
+                        subjects.append(header['value'])
+                        break
+        except Exception as e:
+            print(f"⚠️ Gmail fetch error: {e}")
+            subjects = []
+
+        # 6) Google Tasks (first list, top 10)
+        try:
+            tasks_service = build('tasks', 'v1', credentials=self.creds, cache_discovery=False)
+            lists = tasks_service.tasklists().list(maxResults=1).execute()
+            all_tasks = []
+            for tl in lists.get('items', []):
+                tasks = tasks_service.tasks().list(tasklist=tl['id'], maxResults=10).execute()
+                for t in tasks.get('items', []):
+                    all_tasks.append(t.get('title', ''))
+        except Exception as e:
+            print(f"⚠️ Google Tasks fetch error: {e}")
+            all_tasks = []
+
+        # 7) YouTube Channels (from history)
+        yt_channels = []
+        try:
+            for it in yt_history:
+                # Try to parse "channelTitle" if you add this above
+                if 'channelTitle' in it:
+                    yt_channels.append(it['channelTitle'])
+        except Exception:
+            pass
+        yt_channels = list(dict.fromkeys(yt_channels))[:5]
 
         # Merge and save
         data["google"] = {
@@ -190,6 +237,9 @@ class GoogleCollector:
             ],
             "youtube_history": yt_history,
             "contacts": contact_data,
+            "gmail_subjects": subjects,
+            "tasks": all_tasks,
+            "youtube_channels": yt_channels,
         }
 
         save_json(Path(Config.PROFILE_PATH), data)

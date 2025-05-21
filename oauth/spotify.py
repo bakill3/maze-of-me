@@ -1,8 +1,5 @@
 """
-Very small Spotify collector:
-
-• authenticate()            – OAuth code flow in a browser
-• fetch_and_save()          – store top-tracks (+ audio-features) in user_profile.json
+spotify.py
 """
 
 from __future__ import annotations
@@ -137,8 +134,43 @@ class SpotifyCollector:
             feats = {f["id"]: f for f in feats_raw if f}
         except requests.HTTPError:
             pass
+        
+        # Playlists
+        try:
+            playlists_resp = self._api_get("me/playlists", {"limit": 10})
+            playlist_names = [pl['name'] for pl in playlists_resp['items']]
+        except Exception:
+            playlist_names = []
 
-        # merge into profile JSON
+        # Favorite artists/genres
+        try:
+            top_artists_resp = self._api_get("me/top/artists", {"limit": 5})
+            genres = []
+            top_artist = ""
+            if top_artists_resp["items"]:
+                top_artist = top_artists_resp["items"][0]["name"]
+                for a in top_artists_resp["items"]:
+                    genres += a.get('genres', [])
+                genres = list(set(genres))
+        except Exception:
+            top_artist = ""
+            genres = []
+
+        # Recently liked tracks
+        try:
+            liked_resp = self._api_get("me/tracks", {"limit": 5})
+            liked_tracks = [t['track']['name'] for t in liked_resp['items']]
+        except Exception:
+            liked_tracks = []
+
+        # merge into profile JSON    
         prof = load_json(Path(Config.PROFILE_PATH))
-        prof["spotify"] = {"top_tracks": tracks, "audio_features": feats}
+        prof["spotify"] = {
+            "top_tracks": tracks,
+            "audio_features": feats,
+            "playlists": playlist_names,
+            "genres": genres,
+            "top_artist": top_artist,
+            "liked_tracks": liked_tracks
+        }
         save_json(Path(Config.PROFILE_PATH), prof)
