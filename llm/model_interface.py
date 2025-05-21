@@ -1,18 +1,28 @@
 """
-Tiny LLaMA wrapper – only NPC speech.
+Phi-3 Mini LLaMA wrapper – only NPC speech.
 """
 
 from __future__ import annotations
-import os, json
+import os
+import json
 from pathlib import Path
 from llama_cpp import Llama
 from config import Config
 
-MODEL_PATH = Config.MODELS_DIR / os.getenv(
-    "LLAMA_MODEL_FILE", "tinyllama-1.1b-chat-v1.0.Q5_K_M.gguf"
-)
+# Always use the correct model filename
+MODEL_NAME = "Phi-3-mini-4k-instruct-q4.gguf"
+MODEL_PATH = Config.MODELS_DIR / MODEL_NAME
 
-# read given-name so we can halt on echoes
+print(f"\n[INFO] Loading model from: {MODEL_PATH}")
+print(f"[INFO] Model file exists: {MODEL_PATH.exists()}")
+
+if not MODEL_PATH.exists():
+    raise FileNotFoundError(
+        f"\n[ERROR] Model not found: {MODEL_PATH}\n"
+        f"Please run 'download.bat' in the 'models' folder before starting the game.\n"
+    )
+
+# Read given name for prompt stopping
 try:
     GIVEN = json.loads(Config.PROFILE_PATH.read_text("utf-8")).get("full_name", "").split()[0]
 except Exception:
@@ -31,7 +41,8 @@ def _run(prompt: str, max_tokens: int, temperature: float) -> str:
     try:
         res = _llm(prompt=prompt, max_tokens=max_tokens, temperature=temperature, stop=STOP)
         return res["choices"][0]["text"].strip()
-    except Exception:
+    except Exception as e:
+        print(f"[ERROR] Llama model inference failed: {e}")
         return ""
 
 def query_npc(prompt: str) -> str:

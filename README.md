@@ -31,31 +31,35 @@ Players awake in a mysterious maze. The story and rooms reference your real-worl
 
 ### ✅ Automated User Data Collection
 - **Google OAuth**  
-  - Fetches profile info, calendar events, YouTube history, and contacts (names, emails, birthdays).
+  - Fetches: profile info, calendar events, YouTube watch history, **contacts (names, emails, birthdays), Gmail subjects (last 5), Google Tasks (top 10), and recently watched YouTube channels.**
+  - All data is merged into your game profile and used for richer room/NPC generation.
 - **Spotify OAuth**  
-  - Collects your top tracks, audio features (valence, energy), and artists for music and narrative context.
+  - Collects: your top tracks, audio features (valence, energy), **top artists, favorite genres, liked tracks, and playlists.** All data is mapped to in-game moods and events for music and narrative context.
 
 ### ✅ Emotion-Aware AI Gameplay
-- **Procedural Maze Generation**  
-  - Every room is generated based on your real events, contacts, moods, and time of day.
-  - Room descriptions and layouts are always unique and personalized.
+- **Procedural Maze & Room Generation**
+  - Rooms are now generated using a much wider set of hooks: your calendar events, YouTube activity, contacts, Gmail, playlists, genres, and more.
+  - **NPCs and room descriptions may reference your favorite artists, email subjects, playlists, and tasks.**
+  - Room hooks and NPC context are more diverse, allowing each playthrough to be completely unique and personal.
 - **Music as Mood**  
   - Each room's emotion is matched to your music using valence and energy from Spotify data.
   - Audio is preloaded using `yt-dlp` for instant playback and played with `pygame`.
   - Previous room's audio files are deleted automatically for optimal performance and minimal disk usage.
-- **AI NPCs with Memory and Contact Awareness**  
-  - NPCs use your contacts, recent emotions, and previous dialogue to generate deeply personal interactions.
-  - The AI always gives a meaningful, context-aware reply, even if some data is missing.
-  - Fallback logic ensures the game always continues smoothly.
-- **Dialogue Trees**  
-  - Each encounter lets you choose how to interact: "Who are you?", "Explain this room", "You’re lying", or "Stay silent".
-  - Your emotional reactions (happy, sad, angry, neutral) are remembered and affect future AI responses.
-- **AI Loading Spinner**  
-  - When the AI is thinking, a real-time spinner keeps the CLI responsive until the NPC responds.
-- **NPC Memory**  
-  - NPCs can reference your prior feelings, choices, and even earlier NPCs within and across sessions.
-- **Inspect and Use Room Items**  
-  - You can inspect room furniture for additional context or NPC responses.
+- **Advanced AI NPCs & Memory**
+  - **NPCs now have “memory”**: they can recall your previous emotions, feedback, and even mention earlier NPC exchanges, moods, or player choices.
+  - **Dialogue is now more deeply personalized**—NPCs may reference your recent moods (“I remember you were angry earlier…”), calendar events, contacts, or even subject lines from your recent emails.
+  - **Dialogue choices and emotional feedback** influence subsequent AI responses, not just in the current room, but also across your whole session.
+- **Inspect, Use, and Interact with Room Items**
+  - You can now inspect or “use” furniture in each room for additional AI/NPC context, which may reference your personal data or prior actions.
+  - Interactions are richer, sometimes involving a “mini-game” or riddle based on your current mood or room context.
+- **Persistent Save/Load Sessions**
+  - The game now supports saving and continuing your journey later, preserving your room history, moods, and all NPC memory.
+  - Stats and mood breakdowns are available at any time to track your psychological journey.
+- **Robust Data & Performance**
+  - Previous room audio files are deleted on transition for disk and performance optimization.
+  - All major Google and Spotify data fields are now loaded, cached, and referenced in both gameplay and AI logic.
+- **AI Loading Spinner**
+  - Whenever the AI NPC is generating a response, a live spinner keeps the interface responsive.
 
 ### ✅ Enhanced CLI User Experience
 - Modern CLI with color, typewriter effect, clear menus, and easy navigation.
@@ -90,6 +94,13 @@ graph TD
 
   subgraph Profile["🧍 User Profile"]
     Contacts[Google Contacts]
+    Gmail[Gmail Subjects]
+    Tasks[Google Tasks]
+    Playlists[Spotify Playlists]
+    Genres[Spotify Genres]
+    TopArtist[Spotify Top Artist]
+    Liked[Spotify Liked Tracks]
+    YTChannels[YouTube Channels]
     SpotifyData[Spotify Top Tracks + Features]
     GoogleCal[Google Calendar Events]
     YouTube[YouTube Watch History]
@@ -103,12 +114,15 @@ graph TD
     Inspect[Inspect Room/Furniture]
     Log[Interaction Log & Emotion History]
     UX[CLI Help, Typewriter FX, Spinner, Exit]
+    Stats[Stats & Mood Breakdown]
+    SaveLoad[Save/Load Game State]
+    MiniGame[Mini-game Events]
   end
 
   subgraph LLM["🧠 Local AI"]
-    PromptGen[Build Prompt: Contacts, Emotions, Events]
+    PromptGen[Build Prompt: Contacts, Emotions, Events, Tasks, Music]
     RoomGen[Room Description]
-    NPCGen[NPC Dialogue + Memory]
+    NPCGen[NPC Dialogue + Memory + Data Hooks]
   end
 
   subgraph Audio["🔊 Audio Engine"]
@@ -125,18 +139,32 @@ graph TD
   end
 
   Spotify --> SpotifyData
+  Spotify --> Playlists
+  Spotify --> Genres
+  Spotify --> TopArtist
+  Spotify --> Liked
   Google --> Email
   Google --> GoogleCal
   Google --> YouTube
   Google --> Contacts
+  Google --> Gmail
+  Google --> Tasks
+  Google --> YTChannels
   Facebook --> FBData
   Instagram --> IGData
 
   SpotifyData --> Profile
+  Playlists --> Profile
+  Genres --> Profile
+  TopArtist --> Profile
+  Liked --> Profile
   GoogleCal --> Profile
   YouTube --> Profile
   Email --> Profile
   Contacts --> Profile
+  Gmail --> Profile
+  Tasks --> Profile
+  YTChannels --> Profile
   FBData --> Profile
   IGData --> Profile
 
@@ -152,6 +180,10 @@ graph TD
   Move --> RoomGen
   Talk --> NPCGen
   Inspect --> NPCGen
+  Log --> NPCGen
+  Stats --> UX
+  SaveLoad --> UX
+  MiniGame --> UX
 
   Profile --> MoodDetect
   MoodDetect --> TrackPlay
@@ -215,6 +247,9 @@ python cli.py
 - [x] Inspect & Use Room Items
 - [x] Per-Room Audio Cleanup for Performance
 - [x] NPCs Reference Contacts, Real Events, and Player Emotions
+- [x] Save & load full session, stats, and persistent NPC memory
+- [x] Gmail, Google Tasks, and YouTube channel data included in room/NPC logic
+- [x] Mini-games and dynamic item interactions
 - [ ] Facebook & Instagram Integration (planned)
 - [ ] Persistent Cross-Session NPC Memory (planned)
 - [ ] Optional Web-based GUI (planned)
