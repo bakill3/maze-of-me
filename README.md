@@ -1,89 +1,79 @@
 # 🎭 Maze of Me
 
-> *A deeply personal, narrative-driven psychological game built entirely in Python, harnessing user data and AI-driven NPC interactions.*
+> *A deeply personal, narrative-driven psychological game built entirely in Python, harnessing user data, emotion, and advanced AI-driven NPC interactions.*
+
+---
 
 ## 📖 Overview
 
-**Maze of Me** is a command-line psychological adventure game designed to immerse the player in a deeply personal narrative experience. The game dynamically adapts to the player's personal attributes and online presence, creating an emotionally resonant and profoundly unique gameplay journey. Players navigate through a dynamically generated text-based maze, interacting with emotionally charged rooms, AI-driven NPCs, and music curated specifically for them.
+**Maze of Me** is a command-line psychological adventure where your digital self is the foundation for a unique, emotional narrative. The game adapts to your profile, calendar, moods, and social connections, creating a different journey every session. Navigate a procedurally generated text maze, meet AI figures who remember your feelings and contacts, and discover how your online presence shapes your subconscious world.
 
-The game leverages OAuth logins (Spotify, Google, and eventually Facebook & Instagram) to gather user data and create a personalized, interactive experience.
+OAuth logins (Spotify, Google, with Facebook & Instagram coming soon) bring in real data to create an interactive and personal experience.
 
 ---
 
-## 🧩 Game Concept and Narrative Structure
+## 🧩 Game Concept and Structure
 
-Players awaken inside a mysterious maze, progressively uncovering memories, experiences, and subconscious thoughts. The game unfolds across three emotionally escalating acts:
+Players awake in a mysterious maze. The story and rooms reference your real-world data, events, moods, and contacts, integrating your digital and emotional life into an interactive psychological narrative:
 
 - **Act 1: Awakening**  
-  Rooms and interactions reflect neutral or positive emotions. Warm, upbeat music enhances the experience.
+  Bright rooms and supportive AI figures welcome you. Upbeat music, selected from your top Spotify tracks and YouTube history, enhances the mood.
 
 - **Act 2: Whispers**  
-  Encounters become unsettling, referencing real-life events, relationships, and unresolved emotions from collected user data. NPCs become more confrontational, creating tension.
+  Rooms and AI figures reference real calendar events, friends, or memories. NPCs become more challenging, sometimes asking about people in your contacts or your recent mood.
 
-- **Act 3: Collapse & Reflection**  
-  Reality breaks down, music distorts, and players face a profound psychological confrontation with their inner selves, culminating in self-reflection or a reset narrative loop.
+- **Act 3: Collapse and Reflection**  
+  The maze responds to your feedback, looping through memories and feelings until you reach deeper self-understanding or choose to start over.
 
 ---
 
-## 🔑 Current Features & Implementation
+## 🔑 Features
 
-### ✅ User Profile Collection
-- **Manual Data Entry**: Full name, age, date of birth (EU format: DD-MM-YYYY), height (flexible parsing in meters or centimeters), weight, eye color, hair color, and skin color.
-- **Robust Input Handling**: Continuous validation loops, clear error messages, and confirmation steps ensure accurate data collection.
+### ✅ Automated User Data Collection
+- **Google OAuth**  
+  - Fetches profile info, calendar events, YouTube history, and contacts (names, emails, birthdays).
+- **Spotify OAuth**  
+  - Collects your top tracks, audio features (valence, energy), and artists for music and narrative context.
 
-### ✅ OAuth Integration (Spotify & Google)
-- **Spotify Integration**: 
-  - Authentication via OAuth with `spotipy`
-  - Collection of user's top tracks, artists, and playlists
-  - Analysis of audio features (valence, energy, tempo)
-  - 30-second song previews identified for later retrieval (due to Spotify limitations, actual playback involves YouTube downloading)
+### ✅ Emotion-Aware AI Gameplay
+- **Procedural Maze Generation**  
+  - Every room is generated based on your real events, contacts, moods, and time of day.
+  - Room descriptions and layouts are always unique and personalized.
+- **Music as Mood**  
+  - Each room's emotion is matched to your music using valence and energy from Spotify data.
+  - Audio is preloaded using `yt-dlp` for instant playback and played with `pygame`.
+  - Previous room's audio files are deleted automatically for optimal performance and minimal disk usage.
+- **AI NPCs with Memory and Contact Awareness**  
+  - NPCs use your contacts, recent emotions, and previous dialogue to generate deeply personal interactions.
+  - The AI always gives a meaningful, context-aware reply, even if some data is missing.
+  - Fallback logic ensures the game always continues smoothly.
+- **Dialogue Trees**  
+  - Each encounter lets you choose how to interact: "Who are you?", "Explain this room", "You’re lying", or "Stay silent".
+  - Your emotional reactions (happy, sad, angry, neutral) are remembered and affect future AI responses.
+- **AI Loading Spinner**  
+  - When the AI is thinking, a real-time spinner keeps the CLI responsive until the NPC responds.
+- **NPC Memory**  
+  - NPCs can reference your prior feelings, choices, and even earlier NPCs within and across sessions.
+- **Inspect and Use Room Items**  
+  - You can inspect room furniture for additional context or NPC responses.
 
-- **Google Integration**:
-  - OAuth authentication with `google-auth`
-  - Fetching of user profile info (name, email, profile picture)
-  - Import of Google Calendar events summaries
-  - Optional import of YouTube watch history for deeply personalized interactions
-
-### ✅ Audio Playback Integration
-- **YouTube Preloading**:
-  - Using `yt-dlp` to automatically download audio previews matching the user's Spotify top tracks
-  - Dynamic playback through `pygame.mixer` and/or `pydub`
-
-- **Emotion-Based Soundtracking**:
-  - Music selections are context-sensitive, aligning song moods (determined by Spotify's energy/valence metrics) with room atmospheres.
-
-### ✅ Dynamic Room & Maze Generation
-- Room descriptions and layouts are dynamically generated using AI prompts tailored to user data and emotional contexts.
-- Events tied to real-world context: Operating system date/time, calendar events, YouTube history, Spotify lyrics, etc.
-
-### ✅ NPC Interactions (AI-Powered)
-- **NPC Dialogue**:
-  - Powered by locally-run LLaMA 3 models (`llama.cpp`, Ollama, LM Studio)
-  - Dialogue personalized with names of real contacts, phrases from YouTube and Spotify data, and generated hallucinated memories
-
-- **Interaction Mechanics**:
-  - Simple dialogue choices to interact with NPCs:
-    - `"What are you talking about?"`
-    - `"Stay silent"`
-    - `"You’re not real."`
-
-### ✅ Enhanced User Experience
-- Comprehensive CLI UX: robust parsing, clear help commands (`h`, `?`), graceful Ctrl+C exits, and terminal clearing for immersive sessions.
-- Detailed logging via Python’s built-in `logging` module for debugging and future analytics.
+### ✅ Enhanced CLI User Experience
+- Modern CLI with color, typewriter effect, clear menus, and easy navigation.
+- Help menu, graceful exits, and robust error handling.
+- Detailed logging of all interactions for transparency and debugging.
 
 ---
 
 ## 🛠️ Tech Stack
 
 - **Programming Language**: Python 3.13.3
-- **CLI Engine**: Custom-built (`input()` and `print()` loops)
-- **OAuth Libraries**: `spotipy`, `google-auth`, `requests-oauthlib`, `facebook-sdk` (planned future)
-- **Audio Playback**: `pygame`, `pydub`, `simpleaudio`
-- **Audio Preloading**: `yt-dlp` for downloading Spotify-linked YouTube audio
-- **AI Integration**: Local LLM via `llama-cpp-python` (LLaMA 3), Ollama, LM Studio
-- **Data Management**: JSON file storage (`user_profile.json`)
-- **Utilities & Parsing**: Custom utilities for JSON I/O, input parsing, OS and datetime detection
-- **Cross-Platform Compatibility**: Tested on Windows, Linux, macOS
+- **CLI Engine**: Custom-built (input, print, color, spinner, typewriter)
+- **OAuth Libraries**: `spotipy`, `google-auth`, `requests-oauthlib`
+- **Audio Playback**: `pygame`, `yt-dlp`
+- **AI Integration**: Local LLM with `llama-cpp-python` (Phi-3, LLaMA, Mistral), Ollama, or LM Studio
+- **Data Storage**: JSON files
+- **Utilities**: Helpers for parsing, data, and OS/platform detection
+- **Cross-Platform**: Runs on Windows, Linux, and macOS
 
 ---
 
@@ -94,11 +84,13 @@ graph TD
   subgraph OAuth["🔐 OAuth Providers"]
     Spotify[Spotify OAuth]
     Google[Google OAuth]
+    Facebook[Facebook OAuth (planned)]
+    Instagram[Instagram OAuth (planned)]
   end
 
   subgraph Profile["🧍 User Profile"]
-    Input[Manual Info: name, DOB, traits]
-    SpotifyData[Spotify Top Tracks + Audio Features]
+    Contacts[Google Contacts]
+    SpotifyData[Spotify Top Tracks + Features]
     GoogleCal[Google Calendar Events]
     YouTube[YouTube Watch History]
     Email[Google Profile Info]
@@ -108,37 +100,45 @@ graph TD
     Start[Start Maze]
     Move[Choose Direction]
     Talk[Talk to NPC]
-    UX[CLI Help, Typewriter FX, Ctrl+C Exit]
+    Inspect[Inspect Room/Furniture]
+    Log[Interaction Log & Emotion History]
+    UX[CLI Help, Typewriter FX, Spinner, Exit]
   end
 
-  subgraph LLM["🧠 LLaMA (Local AI)"]
-    PromptGen[Build Prompt from Profile]
-    RoomGen[Generate Room Text]
-    NPCGen[Generate NPC Dialogue]
+  subgraph LLM["🧠 Local AI"]
+    PromptGen[Build Prompt (with Contacts, Emotions, Events)]
+    RoomGen[Room Description]
+    NPCGen[NPC Dialogue + Memory]
   end
 
   subgraph Audio["🔊 Audio Engine"]
-    MoodDetect[Detect Mood via Spotify Energy]
-    TrackPlay[Play YouTube Preview via yt-dlp]
-    Cache[Preload Tracks Locally]
+    MoodDetect[Analyze Spotify Valence/Energy]
+    TrackPlay[Play YouTube Audio via yt-dlp]
+    Cache[Preload & Cleanup Tracks]
   end
 
   subgraph Future["🚧 Planned Features"]
-    FB[Facebook OAuth]
-    IG[Instagram OAuth]
+    FBData[Facebook Data]
+    IGData[Instagram Data]
     NPCFriends[NPCs from Real People]
+    WebUI[Web-based GUI (optional)]
   end
 
   Spotify --> SpotifyData
   Google --> Email
   Google --> GoogleCal
   Google --> YouTube
+  Google --> Contacts
+  Facebook --> FBData
+  Instagram --> IGData
 
-  Input --> Profile
   SpotifyData --> Profile
   GoogleCal --> Profile
   YouTube --> Profile
   Email --> Profile
+  Contacts --> Profile
+  FBData --> Profile
+  IGData --> Profile
 
   Profile --> PromptGen
   PromptGen --> RoomGen
@@ -146,34 +146,32 @@ graph TD
 
   RoomGen --> Start
   NPCGen --> Talk
+  RoomGen --> Inspect
 
   Start --> Move
   Move --> RoomGen
   Talk --> NPCGen
+  Inspect --> NPCGen
 
   Profile --> MoodDetect
   MoodDetect --> TrackPlay
   TrackPlay --> Cache
 
-  FB --> Future
-  IG --> Future
+  FBData --> Future
+  IGData --> Future
   Future --> NPCFriends
+  Future --> WebUI
 ```
-
----
 
 ## Alpha version (spotify auth + random music playlists on each room)
 
-
 https://github.com/user-attachments/assets/490cff18-db04-40df-bba9-e7dd57f322e3
-
 
 ---
 
 ## Current Version
 
-
-https://github.com/user-attachments/assets/698851ac-2eb7-4303-92b2-5745fd6d150b
+https://github.com/user-attachments/assets/6feb4a40-a53a-40da-9f59-334e3a66992c
 
 ---
 
@@ -182,9 +180,8 @@ https://github.com/user-attachments/assets/698851ac-2eb7-4303-92b2-5745fd6d150b
 ### 1. Clone the repository:
 
 ```bash
-git clone [https://github.com/bakill3/maze-of-me.git]
+git clone https://github.com/bakill3/maze-of-me.git
 cd maze_of_me
-```
 
 ### 2. Install dependencies:
 ```bash
@@ -198,36 +195,35 @@ SPOTIFY_CLIENT_SECRET=your_spotify_secret
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_secret
 ```
-### 4. Run the game:
+
+### 4. Download AI Model
+To download the required language model, run download.bat inside the models folder before starting the game.
+
+### 5. Run the game:
 ```bash
 python cli.py
 ```
 
-## 🎯 Future Development & Roadmap
-
-### 🚧 Short-term goals:
-- **Full Spotify & Google integration**: Finalize OAuth workflows, data retrieval (Spotify playlists, top tracks, Google Calendar events, YouTube history), and seamless integration into gameplay.
-- **Complete LLM integration**: Fully implement NPC dialogues, dynamic room descriptions, and emotional atmosphere generation with local LLaMA 3 models.
-
-### 🛤️ Mid-term goals:
-- **Facebook & Instagram OAuth Integration**: Add support for logging in via Facebook & Instagram to further enhance personalization.
-  - Collect data such as likes, comments, and interactions from user's social media posts.
-  - Generate NPCs that closely resemble user's real-life acquaintances and relationships based on collected data.
-
-- **Enhanced NPC realism**: Utilize detailed social-media data to craft more emotionally engaging and realistic NPC interactions.
-
-### 🌌 Long-term ambitions:
-- **Advanced Psychological Analysis**: Integrate algorithms capable of deeper psychological profiling for more accurate personalization of narrative arcs and emotional experiences.
-- **Optional Web-based UI**: Offer a web-based graphical interface as an optional extension of the CLI experience, enhancing immersion with visual and audio effects.
+## 🗺️ Gameplay & AI Roadmap
+- [x] Spotify and Google OAuth & Data Collection
+- [x] YouTube Audio Preloading, Caching, and Cleanup
+- [x] Emotion-driven Room and Music Generation
+- [x] AI NPCs Powered by Local LLM, with Memory and Contacts
+- [x] Dialogue Trees & Player Emotion Feedback
+- [x] Loading Spinner for AI Responses
+- [x] Inspect & Use Room Items
+- [x] Per-Room Audio Cleanup for Performance
+- [x] NPCs Reference Contacts, Real Events, and Player Emotions
+- [ ] Facebook & Instagram Integration (planned)
+- [ ] Persistent Cross-Session NPC Memory (planned)
+- [ ] Optional Web-based GUI (planned)
 
 ---
 
 ## 🧪 Testing
 
-Comprehensive unit tests are provided for critical parsing functions, ensuring code robustness and reliability.
-
-Run tests using `pytest`:
-
+Unit tests for all critical parsing and CLI logic.  
+To run tests:
 ```bash
 pytest tests/test_parsers.py
 ```
@@ -243,13 +239,14 @@ pytest tests/test_parsers.py
 
 ## 🌟 Contribution & Feedback
 
-Currently, the repository is private. However, feedback, suggestions, and collaboration opportunities are warmly welcomed. Please reach out directly to the repository owner to discuss potential improvements or future collaboration.
-
+Maze of Me is open to your ideas!
+Open an issue, fork the repo, or contact the maintainer to contribute.
 ---
 
 ## ©️ License
 
-The licensing model will be established prior to the project's public release. Currently, the repository remains private, and all rights are reserved by the author.
+The license will be finalized before public release.
+All rights reserved by the author.
 
 ---
 
