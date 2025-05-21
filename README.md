@@ -84,8 +84,8 @@ graph TD
   subgraph OAuth["🔐 OAuth Providers"]
     Spotify[Spotify OAuth]
     Google[Google OAuth]
-    Facebook[Facebook OAuth (planned)]
-    Instagram[Instagram OAuth (planned)]
+    Facebook[Facebook OAuth planned]
+    Instagram[Instagram OAuth planned]
   end
 
   subgraph Profile["🧍 User Profile"]
@@ -106,7 +106,7 @@ graph TD
   end
 
   subgraph LLM["🧠 Local AI"]
-    PromptGen[Build Prompt (with Contacts, Emotions, Events)]
+    PromptGen[Build Prompt: Contacts, Emotions, Events]
     RoomGen[Room Description]
     NPCGen[NPC Dialogue + Memory]
   end
@@ -121,7 +121,7 @@ graph TD
     FBData[Facebook Data]
     IGData[Instagram Data]
     NPCFriends[NPCs from Real People]
-    WebUI[Web-based GUI (optional)]
+    WebUI[Web-based GUI optional]
   end
 
   Spotify --> SpotifyData
@@ -169,10 +169,11 @@ https://github.com/user-attachments/assets/490cff18-db04-40df-bba9-e7dd57f322e3
 
 ---
 
-## Current Version
+## Version 0.1
 
 https://github.com/user-attachments/assets/6feb4a40-a53a-40da-9f59-334e3a66992c
 
+Current Version: 0.5
 ---
 
 ## 🚀 Installation & Running Locally
