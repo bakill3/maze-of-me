@@ -31,7 +31,6 @@ class _GoogleCallbackHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
-            # Simple page to tell user they're done
             self.wfile.write(
                 "<h1>✅ Google authentication complete. You can close this window.</h1>"
                 .encode("utf-8")
@@ -41,29 +40,26 @@ class _GoogleCallbackHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def log_message(self, *args):
-        # Silence default logging
         pass
 
 class GoogleCollector:
-    """Collects Google profile, calendar events, and YouTube history."""
+    """Collects Google profile, calendar events, YouTube history, and contacts."""
 
-    # Scopes for profile, calendar read-only, YouTube history
     SCOPES = [
         "openid",
         "https://www.googleapis.com/auth/userinfo.profile",
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/calendar.readonly",
         "https://www.googleapis.com/auth/youtube.readonly",
+        "https://www.googleapis.com/auth/contacts.readonly",
     ]
 
-    # Location of your client secret JSON downloaded from Google Cloud
     CLIENT_SECRETS_FILE = Path(__file__).parent.parent / "google_client_secret.json"
 
     def __init__(self):
         self.creds: Credentials | None = None
 
     def authenticate(self):
-        # Start the OAuth2 flow
         flow = Flow.from_client_secrets_file(
             str(self.CLIENT_SECRETS_FILE),
             scopes=self.SCOPES,
@@ -75,7 +71,6 @@ class GoogleCollector:
             prompt="consent"
         )
 
-        # Launch local HTTP server to catch the redirect
         server = HTTPServer((REDIRECT_HOST, REDIRECT_PORT), _GoogleCallbackHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -83,20 +78,18 @@ class GoogleCollector:
         print("\n🔑 Google OAuth… opening browser for login…")
         webbrowser.open(auth_url, new=1)
 
-        # Wait for the handler to get the code
         while not _GoogleCallbackHandler.auth_code:
             pass
         server.shutdown()
         code = _GoogleCallbackHandler.auth_code
 
-        # Exchange code for tokens
         flow.fetch_token(code=code)
         self.creds = flow.credentials
 
         print("✅ Google authentication successful.\n")
 
     def fetch_and_save(self):
-        """Fetch profile, calendar events, and YouTube history and save them."""
+        """Fetch profile, calendar events, YouTube history, and contacts. Save all."""
         if not self.creds:
             raise RuntimeError("Google credentials not found. Call authenticate() first.")
 
@@ -110,7 +103,7 @@ class GoogleCollector:
             print(f"⚠️ Google profile fetch error: {e}")
             profile = {}
 
-        # 2) Calendar events (next 10 upcoming)
+        # 2) Calendar events (next 20 upcoming)
         try:
             cal = build("calendar", "v3", credentials=self.creds, cache_discovery=False)
             now = datetime.utcnow().isoformat() + "Z"
@@ -119,7 +112,7 @@ class GoogleCollector:
                    .list(
                        calendarId="primary",
                        timeMin=now,
-                       maxResults=10,
+                       maxResults=20,
                        singleEvents=True,
                        orderBy="startTime"
                    )
@@ -130,7 +123,7 @@ class GoogleCollector:
             print(f"⚠️ Google calendar fetch error: {e}")
             events = []
 
-                # 3) YouTube watch history (last 10 via Activities API)
+        # 3) YouTube watch history (last 10 via Activities API)
         try:
             yt = build("youtube", "v3", credentials=self.creds, cache_discovery=False)
             acts = (
@@ -148,7 +141,7 @@ class GoogleCollector:
                 snip = it.get("snippet", {})
                 cd   = it.get("contentDetails", {})
                 title = snip.get("title", "Untitled")
-                # Attempt to pull a videoId from any contentDetails subfield
+                # Try to pull a videoId from any contentDetails subfield
                 video_id = (
                     cd.get("upload", {}).get("videoId")
                     or cd.get("watchHistory", {}).get("resourceId", {}).get("videoId")
@@ -160,6 +153,29 @@ class GoogleCollector:
             print(f"⚠️ YouTube history fetch error: {e}")
             yt_history = []
 
+        # 4) Google contacts (top 10, name/email/birthday)
+        try:
+            people = build("people", "v1", credentials=self.creds, cache_discovery=False)
+            results = people.people().connections().list(
+                resourceName="people/me",
+                pageSize=10,
+                personFields="names,emailAddresses,birthdays"
+            ).execute()
+            contacts = results.get("connections", [])
+            contact_data = [
+                {
+                    "name": c.get("names", [{}])[0].get("displayName", ""),
+                    "email": c.get("emailAddresses", [{}])[0].get("value", ""),
+                    "birthday": (
+                        c.get("birthdays", [{}])[0].get("date", {}) 
+                        if c.get("birthdays") else ""
+                    )
+                }
+                for c in contacts
+            ]
+        except Exception as e:
+            print(f"⚠️ Google contacts fetch error: {e}")
+            contact_data = []
 
         # Merge and save
         data["google"] = {
@@ -172,7 +188,8 @@ class GoogleCollector:
                 }
                 for ev in events
             ],
-            "youtube_history": yt_history
+            "youtube_history": yt_history,
+            "contacts": contact_data,
         }
 
         save_json(Path(Config.PROFILE_PATH), data)
