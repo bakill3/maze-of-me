@@ -1,4 +1,8 @@
-import subprocess, os, random, pygame, requests
+import subprocess
+import os
+import random
+import pygame
+import requests
 from pathlib import Path
 from yt_dlp import YoutubeDL
 
@@ -60,10 +64,16 @@ class AudioPlayer:
         path = PROJECT / f"{stem}.{ext}"
         if path.exists(): self.play_file(self.convert_to_wav(path))
 
-    def play_full_from_youtube(self, artist: str, title: str):
-        self.delete_last_cache()
-        wav = self.convert_to_wav(self.download_youtube(artist, title))
-        self.play_file(wav)
+    def play_full_from_youtube(self, artist, track):
+        try:
+            self.delete_last_cache()
+            raw_path = self.download_youtube(artist, track)
+            wav_path = self.convert_to_wav(raw_path)
+            self.play_file(wav_path)
+        except Exception as e:
+            print("[WARN] Music download/playback failed:", e)
+            # Optionally play a fallback sound or skip
+            return
 
     def pick_track_index(self, emotion: str, total: int) -> int:
         pool = [i for i in EMOTION_PLAYLIST.get(emotion, range(total)) if i < total]
@@ -89,14 +99,15 @@ class AudioPlayer:
         return random.choice(candidates) if candidates else random.randrange(len(tracks))
 
     def preload_track(self, idx, tracks, buf, q, done, feats=None):
-        if idx in done or idx in buf: return
-        t = tracks[idx]
         try:
+            if idx in done or idx in buf: return
+            t = tracks[idx]
             src = self.download_youtube(t["artists"][0], t["name"])
             wav = self.convert_to_wav(src)
             buf[idx] = wav; q.append(idx)
-        except Exception:
-            pass
+        except Exception as e:
+            print("[WARN] Preload failed:", e)
+            return
 
     def delete_last_cache(self):
         # Remove last played wav and raw file from previous room
