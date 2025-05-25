@@ -73,6 +73,13 @@ def delete_session():
     if os.path.exists(SESSION_SAVE_FILE):
         os.remove(SESSION_SAVE_FILE)
 
+def get_npc_response_bg(maze, dialogue_key, curr_room, log, result_holder, stop_event):
+    # Run LLM in background, store result in result_holder dict
+    npc_reply, npc_mem = maze.talk_with_context(dialogue_key, curr_room, log)
+    result_holder['npc_reply'] = npc_reply
+    result_holder['npc_mem'] = npc_mem
+    stop_event.set()
+
 def main():
     clear_screen()
     animated_intro()
@@ -170,6 +177,7 @@ def main():
 ║ 6) View interaction log                      ║
 ║ 7) Save & exit                               ║
 ║ 8) Stats/progress                            ║
+║ i) Inventory        – view items             ║
 ║ 0) Quit           – exit game                ║
 ║ h or ?            – help menu                ║
 ╚═══════════════════════════════════════════════╝
@@ -177,6 +185,20 @@ def main():
 
     # In-game mini-game trigger
     MINI_GAME_ROOMS = {"special", "exam", "puzzle"}
+
+    def show_loading_spinner(msg="Loading..."):
+        stop_event = threading.Event()
+        def spinner():
+            sp = itertools.cycle(['|', '/', '-', '\\'])
+            while not stop_event.is_set():
+                sys.stdout.write(Fore.YELLOW + f"\r{msg} " + next(sp) + Style.RESET_ALL)
+                sys.stdout.flush()
+                time.sleep(0.07)
+            sys.stdout.write('\r' + ' ' * 40 + '\r')
+            sys.stdout.flush()
+        t = threading.Thread(target=spinner)
+        t.start()
+        return stop_event
 
     while True:
         print(MENU)
@@ -211,24 +233,32 @@ def main():
                 most = c.most_common(1)[0][0]
                 print(Fore.CYAN + f"\nYou visited {total} rooms. Most common mood: {most}" + Style.RESET_ALL)
                 print(Fore.YELLOW + "Mood breakdown: " + ", ".join(f"{m}:{n}" for m, n in c.items()) + Style.RESET_ALL)
-                
                 if 'sad' in c and c['sad'] > total // 2:
                     print(Fore.RED + "Warning: A shadow of sadness follows you. Maybe try some happy music?" + Style.RESET_ALL)
                 elif 'happy' in c and c['happy'] > total // 2:
                     print(Fore.GREEN + "Your journey is bright and optimistic!" + Style.RESET_ALL)
+                # --- Enhanced analytics: NPCs and contacts ---
+                npc_stats = maze.get_npc_stats()
+                print(Fore.MAGENTA + f"\nNPCs encountered: {npc_stats['total_npcs']}" + Style.RESET_ALL)
+                if npc_stats['most_npc']:
+                    print(Fore.MAGENTA + f"Most frequent NPC: {npc_stats['most_npc']}" + Style.RESET_ALL)
+                if npc_stats['most_contact']:
+                    print(Fore.MAGENTA + f"Most referenced contact: {npc_stats['most_contact']}" + Style.RESET_ALL)
+                if npc_stats['contact_mentions']:
+                    print(Fore.YELLOW + "Contact mentions: " + ", ".join(f"{k}:{v}" for k,v in npc_stats['contact_mentions'].items()) + Style.RESET_ALL)
             else:
                 print(Fore.CYAN + "No progress yet! Enter a room to begin." + Style.RESET_ALL)
             continue
 
         if ch in ("1","2","3"):
-            # Room transition: increment, play music, cleanup
+            stop_event = show_loading_spinner("Moving to next room...")
             room_idx += 1
             curr_room = maze.move(ch)
-            npc_greeted = False  # NPC should greet first time you enter
+            stop_event.set()
+            npc_greeted = False
             visited.append(curr_room.description)
             moods.append(curr_room.theme)
             log.append(f"Room #{room_idx}: {curr_room.theme} – {curr_room.description}")
-
             print(Fore.CYAN + f"\nRoom #{room_idx}\n" + Style.BRIGHT, end="")
             print(curr_room.theme, end=" ")
             typewriter(curr_room.description+"\n\n", Fore.WHITE)
@@ -237,7 +267,9 @@ def main():
             if any(key in curr_room.theme.lower() or key in curr_room.description.lower() for key in MINI_GAME_ROOMS):
                 print(Fore.GREEN + "\nMini-game: Solve this riddle or type 'skip' to continue." + Style.RESET_ALL)
                 print("What walks on four legs in the morning, two legs at noon, and three legs in the evening?")
+                stop_event = show_loading_spinner("Waiting for your answer...")
                 ans = input(Fore.CYAN+"➤ "+Style.RESET_ALL).strip().lower()
+                stop_event.set()
                 if "man" in ans or "human" in ans:
                     print(Fore.GREEN + "Correct! The Sphinx would be proud." + Style.RESET_ALL)
                     log.append("Mini-game: solved Sphinx riddle")
@@ -248,37 +280,50 @@ def main():
                     print(Fore.RED + "Not quite right, but the maze lets you pass..." + Style.RESET_ALL)
                     log.append(f"Mini-game: incorrect answer '{ans}'")
 
-            # Emotion-matched music
+            # --- Improved music loading ---
             if track_n:
                 emotion = curr_room.theme
+                stop_event = show_loading_spinner("Loading music...")
                 idx = player.pick_track_by_emotion(emotion, tracks, feats)
-                player.delete_last_cache()  # Delete previous music files
+                player.delete_last_cache()
                 done.add(idx)
                 tr  = tracks[idx]
                 wav = buf.pop(idx, None)
                 if wav and wav.exists():
                     player.play_file(wav)
                 else:
-                    player.play_full_from_youtube(tr["artists"][0], tr["name"])
-                # Preload next
+                    # Start download in background, play a fallback if needed
+                    bg_event = threading.Event()
+                    def bg_download():
+                        player.play_full_from_youtube(tr["artists"][0], tr["name"])
+                        bg_event.set()
+                    t = threading.Thread(target=bg_download)
+                    t.start()
+                    # Optionally play a short sound or message while waiting
+                    t.join(timeout=2.5)  # Wait up to 2.5s, then continue
+                stop_event.set()
+                # Preload next track in background for next room
                 avail = [i for i in range(track_n) if i not in done and i not in buf and i not in q]
                 if not avail: done.clear(); avail=list(range(track_n))
                 nxt = random.choice(avail)
                 threading.Thread(target=player.preload_track,
                                  args=(nxt,tracks,buf,q,done,feats),daemon=True).start()
             continue
-
         if ch == "4":
             if not curr_room:
                 print(Fore.RED + "You haven't entered a room yet." + Style.RESET_ALL)
                 continue
             if not npc_greeted:
-                stop_event = threading.Event()
-                spinner_thread = threading.Thread(target=show_spinner, args=(stop_event,))
-                spinner_thread.start()
-                npc_reply, npc_mem = maze.talk_with_context("greeting", curr_room, log)
+                stop_event = show_loading_spinner("NPC is thinking...")
+                result_holder = {}
+                bg_event = threading.Event()
+                t = threading.Thread(target=get_npc_response_bg, args=(maze, "greeting", curr_room, log, result_holder, bg_event))
+                t.start()
+                while not bg_event.is_set():
+                    time.sleep(0.05)
                 stop_event.set()
-                spinner_thread.join()
+                npc_reply = result_holder.get('npc_reply', '')
+                npc_mem = result_holder.get('npc_mem', '')
                 print(Fore.MAGENTA + "NPC: " + Style.BRIGHT + npc_reply + Style.RESET_ALL)
                 log.append(f"[NPC] (greeting): {npc_reply}")
                 npc_greeted = True
@@ -287,32 +332,47 @@ def main():
             else:
                 print(Fore.YELLOW + "\nHow will you address the figure?\n" + Style.RESET_ALL)
                 d_opt = choose("Choose:", DIALOGUE_OPTIONS)
-                stop_event = threading.Event()
-                spinner_thread = threading.Thread(target=show_spinner, args=(stop_event,))
-                spinner_thread.start()
-                npc_reply, npc_mem = maze.talk_with_context(d_opt, curr_room, log)
+                stop_event = show_loading_spinner("NPC is thinking...")
+                result_holder = {}
+                bg_event = threading.Event()
+                t = threading.Thread(target=get_npc_response_bg, args=(maze, d_opt, curr_room, log, result_holder, bg_event))
+                t.start()
+                while not bg_event.is_set():
+                    time.sleep(0.05)
                 stop_event.set()
-                spinner_thread.join()
+                npc_reply = result_holder.get('npc_reply', '')
+                npc_mem = result_holder.get('npc_mem', '')
                 print(Fore.MAGENTA + "NPC: " + Style.BRIGHT + npc_reply + Style.RESET_ALL)
                 log.append(f"[Player] asked: '{dict(DIALOGUE_OPTIONS)[d_opt]}' – [NPC] replied: {npc_reply}")
                 if npc_mem:
                     log.append(f"  (NPC remembered: {npc_mem})")
                 print(Fore.YELLOW + "\nHow do you feel about this exchange?\n" + Style.RESET_ALL)
+                stop_event = show_loading_spinner("Recording your reaction...")
                 fb = choose("React:", FEEDBACK_OPTIONS)
+                stop_event.set()
                 last_feedback = dict(FEEDBACK_OPTIONS)[fb]
                 log.append(f"Player emotional feedback: {last_feedback}")
                 maze.record_feedback(last_feedback)
                 continue
-
             dialogue_label = dict(DIALOGUE_OPTIONS)[d_opt]
-            npc_reply, npc_mem = maze.talk_with_context(d_opt, curr_room, log)
+            stop_event = show_loading_spinner("NPC is thinking...")
+            result_holder = {}
+            bg_event = threading.Event()
+            t = threading.Thread(target=get_npc_response_bg, args=(maze, d_opt, curr_room, log, result_holder, bg_event))
+            t.start()
+            while not bg_event.is_set():
+                time.sleep(0.05)
+            stop_event.set()
+            npc_reply = result_holder.get('npc_reply', '')
+            npc_mem = result_holder.get('npc_mem', '')
             print(Fore.MAGENTA + "NPC: " + Style.BRIGHT + npc_reply + Style.RESET_ALL)
             log.append(f"[Player] asked: '{dialogue_label}' – [NPC] replied: {npc_reply}")
             if npc_mem:
                 log.append(f"  (NPC remembered: {npc_mem})")
-            # --- Feedback ---
             print(Fore.YELLOW + "\nHow do you feel about this exchange?\n" + Style.RESET_ALL)
+            stop_event = show_loading_spinner("Recording your reaction...")
             fb = choose("React:", FEEDBACK_OPTIONS)
+            stop_event.set()
             last_feedback = dict(FEEDBACK_OPTIONS)[fb]
             log.append(f"Player emotional feedback: {last_feedback}")
             maze.record_feedback(last_feedback)
@@ -324,16 +384,32 @@ def main():
                 continue
             furniture = maze.get_room_furniture()
             print(Fore.YELLOW + f"\nInspecting: {furniture}\n" + Style.RESET_ALL)
+            stop_event = show_loading_spinner("Inspecting item...")
             npc_comment = maze.inspect_furniture(furniture)
+            stop_event.set()
             print(Fore.MAGENTA + "NPC: " + Style.BRIGHT + npc_comment + Style.RESET_ALL)
             log.append(f"Inspected furniture: {furniture} – [NPC] commented: {npc_comment}")
+            # Show items in the room
+            items = maze.get_room_items()
+            if items:
+                print(Fore.YELLOW + f"\nYou see items here: {', '.join(items)}" + Style.RESET_ALL)
+                print(Fore.YELLOW + "Type the name of an item to collect it, or press Enter to skip." + Style.RESET_ALL)
+                item_choice = input(Fore.CYAN+"➤ "+Style.RESET_ALL).strip()
+                if item_choice and item_choice in items:
+                    if maze.collect_item(item_choice):
+                        print(Fore.GREEN + f"Collected: {item_choice}" + Style.RESET_ALL)
+                    else:
+                        print(Fore.RED + "Couldn't collect that item." + Style.RESET_ALL)
             continue
-
-        if ch == "6":
-            print(Fore.GREEN + "\n=== Interaction Log ===" + Style.RESET_ALL)
-            for entry in log[-30:]:
-                print(" - " + entry)
-            print(Fore.GREEN + "=======================\n" + Style.RESET_ALL)
+        if ch == "i":
+            # Show inventory
+            inv = maze.get_inventory()
+            print(Fore.YELLOW + "\nYour inventory:" + Style.RESET_ALL)
+            if inv:
+                for it in inv:
+                    print(Fore.CYAN + f"- {it}" + Style.RESET_ALL)
+            else:
+                print(Fore.CYAN + "(empty)" + Style.RESET_ALL)
             continue
 
         print(Fore.RED+"❓ Unknown command."+Style.RESET_ALL)
