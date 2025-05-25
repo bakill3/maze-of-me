@@ -9,7 +9,6 @@ from pathlib import Path
 from llama_cpp import Llama
 from config import Config
 
-# Always use the correct model filename
 MODEL_NAME = "Phi-3-mini-4k-instruct-q4.gguf"
 MODEL_PATH = Config.MODELS_DIR / MODEL_NAME
 
@@ -22,6 +21,14 @@ if not MODEL_PATH.exists():
         f"Please run 'download.bat' in the 'models' folder before starting the game.\n"
     )
 
+# Use a safe, low context window and thread count for Windows stability
+_llm = Llama(
+    model_path=str(MODEL_PATH),
+    n_ctx=1024,  # Lower context window for less RAM usage
+    n_threads=3, # Slightly higher for more speed if stable
+    verbose=False,
+)
+
 # Read given name for prompt stopping
 try:
     GIVEN = json.loads(Config.PROFILE_PATH.read_text("utf-8")).get("full_name", "").split()[0]
@@ -29,13 +36,6 @@ except Exception:
     GIVEN = ""
 
 STOP = ["\n", "Assistant:", f"{GIVEN}:", "<END>"]
-
-_llm = Llama(
-    model_path=str(MODEL_PATH),
-    n_ctx=1024,
-    n_threads=max(1, os.cpu_count() - 1),
-    verbose=False,
-)
 
 def _run(prompt: str, max_tokens: int, temperature: float) -> str:
     try:
@@ -46,4 +46,6 @@ def _run(prompt: str, max_tokens: int, temperature: float) -> str:
         return ""
 
 def query_npc(prompt: str) -> str:
-    return _run(prompt, max_tokens=60, temperature=0.8)
+    return _run(prompt, max_tokens=40, temperature=0.8)
+
+# In build_npc_prompt (llm/prompt_builder.py), consider truncating player_history and player_emotions to last 3-5 entries for speed.

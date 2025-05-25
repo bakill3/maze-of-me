@@ -1,7 +1,7 @@
 from __future__ import annotations
 from textwrap import dedent
 import re, random
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 def _profile_blurb(profile: dict) -> str:
     gp = profile.get("google", {}).get("profile", {})
@@ -11,7 +11,9 @@ def _profile_blurb(profile: dict) -> str:
 
 _HOOK_TOKEN_RE = re.compile(r"<<(\w+)>>")
 
-def _fallback_with_hook(hooks: Dict[str, str], player_emotions: List[str]=None, contacts: List[str]=None) -> str:
+def _fallback_with_hook(hooks: Dict[str, str], player_emotions: Optional[List[str]]=None, contacts: Optional[List[str]]=None) -> str:
+    player_emotions = player_emotions or []
+    contacts = contacts or []
     # Add more interesting "fallbacks" using hooks, emotions, and contacts.
     if not hooks: return "The figure studies you in silence…"
     key, value = random.choice(list(hooks.items()))
@@ -37,14 +39,21 @@ def build_npc_prompt(
     profile: dict,
     last_room_desc: str,
     hooks: Dict[str, str],
-    dialogue_key: str = None,
-    player_history: str = "",
-    player_emotions: List[str] = None,
-    contacts: List[str] = None
+    dialogue_key: Optional[str] = None,
+    player_history: Optional[str] = "",
+    player_emotions: Optional[List[str]] = None,
+    contacts: Optional[List[str]] = None
 ) -> str:
     """
     Prompt for **The Whisperer** (NPC) -- with memory, emotion, and contact intent.
     """
+    # Restore richer context for realism
+    if isinstance(player_history, list):
+        player_history = player_history[-3:]
+        player_history = " | ".join(player_history)
+    if isinstance(player_emotions, list):
+        player_emotions = player_emotions[-5:]
+    # Use all contacts and hooks for realism
     recent_emotions = ", ".join(player_emotions or []) or "none"
     contacts_line = ", ".join(contacts or [])
     sys_msg = dedent(f"""
@@ -54,35 +63,28 @@ def build_npc_prompt(
         The player just spoke to you with intent: '{dialogue_key or ""}'.
         List of player contacts: {contacts_line}
         Recent player emotions: {recent_emotions}
-        If you want, you can refer to contacts, prior feelings, or previous NPCs—this is encouraged for realism.
         Never break character. Never repeat the room description. End with <END>.
     """).strip()
-
-    hook_block = "\n".join(f"<<{k}>> = {v}" for k, v in hooks.items()) \
-                 if hooks else "(no hooks today)"
-
+    hook_block = "\n".join(f"<<{k}>> = {v}" for k, v in hooks.items()) if hooks else "(no hooks today)"
     user_msg = dedent(f"""
         Player profile: {_profile_blurb(profile)}
-
         Personal hooks you may reference (choose one, insert verbatim!):
         {hook_block}
-
         Current room description:
         "{last_room_desc}"
-
         Player last dialogue/action: "{dialogue_key or 'none'}"
         Previous interaction: "{player_history or 'none'}"
-
         Your single mysterious sentence:
     """).strip()
-
     return (
         "### SYSTEM ###\n"   + sys_msg   + "\n"
         "### USER ###\n"    + user_msg  + "\n"
         "### ASSISTANT ###\n"
     )
 
-def validate_npc_line(text: str, hooks: Dict[str, str], player_emotions: List[str]=None, contacts: List[str]=None) -> str:
+def validate_npc_line(text: str, hooks: Dict[str, str], player_emotions: Optional[List[str]]=None, contacts: Optional[List[str]]=None) -> str:
+    player_emotions = player_emotions or []
+    contacts = contacts or []
     raw = (text or "").strip()
     if not raw:
         return _fallback_with_hook(hooks, player_emotions, contacts)

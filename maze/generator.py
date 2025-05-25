@@ -58,10 +58,11 @@ NPC_CACHE_SIZE  = 30
 NPC_RETRIES     = 7
 
 class Room:
-    def __init__(self, desc: str, theme: str, furniture: str):
+    def __init__(self, desc: str, theme: str, furniture: str, items=None):
         self.description = desc
         self.theme       = theme
         self.furniture   = furniture
+        self.items       = items or []
 
 class MazeGenerator:
     """Interactive maze/NPC with memory, emotion, context, contacts."""
@@ -156,7 +157,7 @@ class MazeGenerator:
         self._visited = visited
         self._moods = moods
 
-    def _make_room_sentence(self, mood: str) -> tuple[str, str]:
+    def _make_room_sentence(self, mood: str) -> tuple[str, str, list]:
         hooks = [
             self.pro.get("google", {}).get("profile", {}).get("given_name", ""),
             self._today or "",
@@ -187,45 +188,72 @@ class MazeGenerator:
             furniture  = furniture,
             wall_color = self._rand(color_list),
         )
-        return desc, furniture
+        # --- Inventory/Item logic ---
+        items = []
+        # Add themed items from user data
+        if self._playlists: items.append("Spotify headphones")
+        if self._gmail: items.append("Email letter")
+        if self._tasks: items.append("Google Task note")
+        if self._calendar_events: items.append("Google Calendar")
+        if self._yt_channels: items.append(f"YouTube: {self._yt_channels[0]}")
+        if self._genres: items.append(f"Music genre: {self._genres[0]}")
+        return desc, furniture, items
+
+    def get_player_emotion_profile(self):
+        """Return a summary of the player's emotional state and influences."""
+        from collections import Counter
+        mood_hist = list(self._emotion_feedback)
+        if not mood_hist:
+            return {"current": "neutral", "counts": {}, "time": _dt.datetime.now().hour}
+        c = Counter(mood_hist)
+        most = c.most_common(1)[0][0]
+        hour = _dt.datetime.now().hour
+        # Influence: night = more sad/angry, day = more happy/neutral
+        if hour < 6 or hour > 22:
+            bias = "sad" if c.get("sad",0) > 0 else most
+        elif 6 <= hour < 12:
+            bias = "happy" if c.get("happy",0) > 0 else most
+        else:
+            bias = most
+        return {"current": bias, "counts": dict(c), "time": hour}
+
+    def _choose_room_mood(self):
+        """Choose a room mood based on player emotion profile and time of day."""
+        prof = self.get_player_emotion_profile()
+        # 60% chance to use player's current mood, else random
+        if random.random() < 0.6:
+            return prof["current"] if prof["current"] in EMOTIONS else random.choice(EMOTIONS)
+        return random.choice(EMOTIONS)
 
     def _unique_room(self) -> Room:
+        # Dream/memory sequence every 6th room
+        if hasattr(self, '_room_counter') and self._room_counter and self._room_counter % 6 == 0:
+            return self._dream_room()
         for _ in range(12):
-            mood = random.choice(EMOTIONS)
-            sent, furniture = self._make_room_sentence(mood)
+            mood = self._choose_room_mood()
+            sent, furniture, items = self._make_room_sentence(mood)
             if sent not in self._recent_rooms:
                 self._recent_rooms.append(sent)
-                return Room(sent, mood, furniture)
-        mood = random.choice(EMOTIONS)
-        sent, furniture = self._make_room_sentence(mood)
+                return Room(sent, mood, furniture, items)
+        mood = self._choose_room_mood()
+        sent, furniture, items = self._make_room_sentence(mood)
         self._recent_rooms.append(sent)
-        return Room(sent, mood, furniture)
+        return Room(sent, mood, furniture, items)
 
-    def _yt_pop(self) -> str:
-        if not self._yt: return ""
-        t = self._yt.pop(0); self._yt.append(t); return t
-
-    def _hooks(self, extra=None) -> dict[str, str]:
-        hooks = {
-            "name": self.pro.get("google", {}).get("profile", {}).get("given_name", ""),
-            "event": self._today,
-            "youtube": self._yt_pop(),
-            "time": _dt.datetime.now().strftime("%H:%M"),
-        }
-        if self._special_events:
-            hooks["special"] = random.choice(self._special_events)
-        if self._birthday_hook:
-            hooks["birthday"] = self._birthday_hook
-        if self._upcoming_events:
-            next_up = random.choice(self._upcoming_events)
-            hooks["upcoming"] = f"{next_up['summary']} in {next_up['days']} days"
-        if self._contacts:
-            hooks["contact"] = random.choice(self._contacts)
-        if extra:
-            hooks.update(extra)
-        items = list(hooks.items())
-        random.shuffle(items)
-        return dict(items)
+    def _dream_room(self) -> Room:
+        """Generate a special memory/dream room from user data."""
+        # Use a notable event: birthday, concert, big meeting, etc.
+        events = [e for e in self._calendar_events if any(k in e["summary"].lower() for k in ["birthday","concert","meeting","party","exam"])]
+        if events:
+            ev = random.choice(events)
+            desc = f"You find yourself reliving: {ev['summary']} ({ev['start']}). The room is warped by memory."
+            return Room(desc, "dream", "memory artifact", ["Memory fragment"])
+        # Fallback: YouTube or music
+        if self._yt:
+            yt = random.choice(self._yt)
+            desc = f"A dreamlike echo of '{yt}' fills the room. You sense this is a memory."
+            return Room(desc, "dream", "echoing object", ["YouTube memory"])
+        return Room("A surreal, shifting space. You feel a memory trying to surface.", "dream", "blurred object", ["Unknown memory"])
 
     def _gen_npc(self, room_desc: str, dialogue_key=None, log=None) -> tuple[str, str]:
         history_snippet = ""
@@ -238,9 +266,23 @@ class MazeGenerator:
         hooks = self._hooks(prompt_extras)
         # Pass contacts and player_emotions
         player_emotions = list(self._emotion_feedback)
+        # --- ENHANCEMENT: Named NPCs from real data ---
+        npc_name = None
+        if self._contacts:
+            npc_name = random.choice(self._contacts)
+        elif self._yt_channels:
+            npc_name = random.choice(self._yt_channels)
+        elif self._gmail:
+            npc_name = random.choice(self._gmail)
+        elif self._playlists:
+            npc_name = random.choice(self._playlists)
+        # If we have a name, use it in the NPC intro
+        if npc_name:
+            intro = f"Your old friend {npc_name} appears here, their presence shaped by your memories."
+            history_snippet = intro
         for _ in range(NPC_RETRIES):
             prompt = build_npc_prompt(
-                self.pro, room_desc, hooks, dialogue_key, history_snippet,
+                self.pro, room_desc, hooks, str(dialogue_key) if dialogue_key else "", history_snippet,
                 player_emotions=player_emotions, contacts=self._contacts
             )
             raw  = query_npc(prompt)
@@ -249,7 +291,7 @@ class MazeGenerator:
                 self._recent_npcs.append(line)
                 return line, history_snippet
             hooks = self._hooks(prompt_extras)
-        alt = f"{random.choice(self._contacts) if self._contacts else 'A shadow'} lingers here."
+        alt = f"{npc_name if npc_name else (random.choice(self._contacts) if self._contacts else 'A shadow')} lingers here."
         self._recent_npcs.append(alt)
         return alt, history_snippet
 
@@ -312,3 +354,95 @@ class MazeGenerator:
             list(self._recent_dialogues),
         )
         return npc_line
+
+    def get_room_items(self):
+        if self._curr_room: return self._curr_room.items
+        return []
+    def collect_item(self, item):
+        if not hasattr(self, '_inventory'):
+            self._inventory = []
+        if self._curr_room and item in self._curr_room.items:
+            self._inventory.append(item)
+            self._curr_room.items.remove(item)
+            return True
+        return False
+    def get_inventory(self):
+        return getattr(self, '_inventory', [])
+
+    def get_npc_stats(self):
+        """Return stats on NPCs and contact mentions for analytics display."""
+        from collections import Counter
+        # Count all NPC lines (excluding fallback/empty)
+        npc_lines = list(self._recent_npcs)
+        total_npcs = len(npc_lines)
+        # Most frequent NPC (by name in line, if present)
+        name_counts = Counter()
+        contact_counts = Counter()
+        for line in npc_lines:
+            # Try to extract a name/contact from the line
+            for contact in self._contacts:
+                if contact and contact in line:
+                    contact_counts[contact] += 1
+                    name_counts[contact] += 1
+            for yt in getattr(self, '_yt_channels', []):
+                if yt and yt in line:
+                    name_counts[yt] += 1
+            for playlist in getattr(self, '_playlists', []):
+                if playlist and playlist in line:
+                    name_counts[playlist] += 1
+        most_npc = name_counts.most_common(1)[0][0] if name_counts else None
+        most_contact = contact_counts.most_common(1)[0][0] if contact_counts else None
+        return {
+            'total_npcs': total_npcs,
+            'most_npc': most_npc,
+            'most_contact': most_contact,
+            'contact_mentions': dict(contact_counts)
+        }
+
+    def _hooks(self, prompt_extras=None):
+        """Return a dictionary of hooks for LLM prompt, using user data and context."""
+        hooks = {}
+        # Name
+        name = self.pro.get("google", {}).get("profile", {}).get("given_name", "")
+        if name:
+            hooks["name"] = name
+        # Special events
+        if self._special_events:
+            hooks["special"] = self._special_events[0]
+        # Birthday
+        if self._birthday_hook:
+            hooks["birthday"] = self._birthday_hook
+        # Today event
+        if self._today:
+            hooks["event"] = self._today
+        # Contact
+        if self._contacts:
+            hooks["contact"] = self._contacts[0]
+        # YouTube
+        if self._yt_channels:
+            hooks["youtube"] = self._yt_channels[0]
+        # Gmail
+        if self._gmail:
+            hooks["gmail"] = self._gmail[0]
+        # Tasks
+        if self._tasks:
+            hooks["task"] = self._tasks[0]
+        # Playlist
+        if self._playlists:
+            hooks["playlist"] = self._playlists[0]
+        # Genre
+        if self._genres:
+            hooks["genre"] = self._genres[0]
+        # Top artist
+        if self._top_artist:
+            hooks["artist"] = self._top_artist
+        # Liked track
+        if self._liked_tracks:
+            hooks["track"] = self._liked_tracks[0]
+        # YouTube video
+        if hasattr(self, '_yt') and self._yt:
+            hooks["ytvideo"] = self._yt[0]
+        # Add any prompt extras
+        if prompt_extras:
+            hooks.update(prompt_extras)
+        return hooks
