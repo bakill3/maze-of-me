@@ -12,6 +12,7 @@ from oauth.spotify    import SpotifyCollector
 from audio.player     import AudioPlayer
 from maze.generator   import MazeGenerator
 import itertools
+from llm.model_interface import streaming_query_npc
 
 colorama.init(autoreset=True)
 
@@ -74,11 +75,18 @@ def delete_session():
         os.remove(SESSION_SAVE_FILE)
 
 def get_npc_response_bg(maze, dialogue_key, curr_room, log, result_holder, stop_event):
-    # Run LLM in background, store result in result_holder dict
-    npc_reply, npc_mem = maze.talk_with_context(dialogue_key, curr_room, log)
-    result_holder['npc_reply'] = npc_reply
-    result_holder['npc_mem'] = npc_mem
-    stop_event.set()
+    try:
+        npc_reply, npc_mem = maze.talk_with_context(dialogue_key, curr_room, log)
+        if not npc_reply:
+            npc_reply = "The figure seems lost in thought and does not respond right now."
+        result_holder['npc_reply'] = npc_reply
+        result_holder['npc_mem'] = npc_mem
+    except Exception as e:
+        print(f"[ERROR] NPC background thread failed: {e}")
+        result_holder['npc_reply'] = "The figure seems lost in thought and does not respond right now."
+        result_holder['npc_mem'] = ""
+    finally:
+        stop_event.set()
 
 def main():
     clear_screen()
@@ -259,8 +267,7 @@ def main():
             visited.append(curr_room.description)
             moods.append(curr_room.theme)
             log.append(f"Room #{room_idx}: {curr_room.theme} – {curr_room.description}")
-            print(Fore.CYAN + f"\nRoom #{room_idx}\n" + Style.BRIGHT, end="")
-            print(curr_room.theme, end=" ")
+            print(Fore.CYAN + f"\nRoom #{room_idx} {curr_room.theme}" + Style.BRIGHT)
             typewriter(curr_room.description+"\n\n", Fore.WHITE)
 
             # Mini-game in "special" rooms (randomly, or by keyword)
@@ -314,38 +321,126 @@ def main():
                 print(Fore.RED + "You haven't entered a room yet." + Style.RESET_ALL)
                 continue
             if not npc_greeted:
-                stop_event = show_loading_spinner("NPC is thinking...")
-                result_holder = {}
-                bg_event = threading.Event()
-                t = threading.Thread(target=get_npc_response_bg, args=(maze, "greeting", curr_room, log, result_holder, bg_event))
+                # --- Streaming output with debug and timeout ---
+                prompt = maze._gen_npc(curr_room.description, "greeting", log)[0]
+                stop_event = threading.Event()
+                first_token = [False]
+                token_received = [False]
+                def spinner():
+                    sp = itertools.cycle(['|', '/', '-', '\\'])
+                    start_time = time.time()
+                    while not stop_event.is_set() and not first_token[0]:
+                        sys.stdout.write(Fore.YELLOW + "\rNPC is thinking... " + next(sp) + Style.RESET_ALL)
+                        sys.stdout.flush()
+                        time.sleep(0.07)
+                        # Timeout after 10s if no token
+                        if time.time() - start_time > 10:
+                            stop_event.set()
+                    sys.stdout.write('\r' + ' ' * 40 + '\r')
+                    sys.stdout.flush()
+                t = threading.Thread(target=spinner)
                 t.start()
-                while not bg_event.is_set():
-                    time.sleep(0.05)
-                stop_event.set()
-                npc_reply = result_holder.get('npc_reply', '')
-                npc_mem = result_holder.get('npc_mem', '')
-                print(Fore.MAGENTA + "NPC: " + Style.BRIGHT + npc_reply + Style.RESET_ALL)
-                log.append(f"[NPC] (greeting): {npc_reply}")
+                reply_buf = []
+                try:
+                    # Debug: entering streaming_query_npc
+                    # print("[DEBUG] Entering streaming_query_npc...")
+                    for token in streaming_query_npc(prompt):
+                        token_received[0] = True
+                        if not first_token[0]:
+                            first_token[0] = True
+                            stop_event.set()
+                            t.join()
+                            print(Fore.MAGENTA + "NPC: " + Style.BRIGHT, end="")
+                            sys.stdout.flush()
+                        sys.stdout.write(token)
+                        sys.stdout.flush()
+                        reply_buf.append(token)
+                        time.sleep(0.025)
+                except Exception as e:
+                    stop_event.set()
+                    t.join()
+                    print(Fore.RED + f"\n[ERROR] Streaming failed: {e}" + Style.RESET_ALL)
+                if not token_received[0]:
+                    stop_event.set()
+                    t.join()
+                    print(Fore.RED + "\n[ERROR] No AI output received. (Is the model running? Is streaming_query_npc working?)" + Style.RESET_ALL)
+                    print(Fore.YELLOW + "Falling back to slow/blocking mode..." + Style.RESET_ALL)
+                    # Fallback to blocking
+                    stop_event = show_loading_spinner("NPC is thinking...")
+                    result_holder = {}
+                    bg_event = threading.Event()
+                    t2 = threading.Thread(target=get_npc_response_bg, args=(maze, "greeting", curr_room, log, result_holder, bg_event))
+                    t2.start()
+                    t2.join(timeout=8)
+                    stop_event.set()
+                    npc_reply = result_holder.get('npc_reply', '')
+                    print(Fore.MAGENTA + "NPC: " + Style.BRIGHT + npc_reply + Style.RESET_ALL)
+                    log.append(f"[NPC] (greeting): {npc_reply}")
+                else:
+                    print(Style.RESET_ALL)
+                    npc_reply = ''.join(reply_buf)
+                    log.append(f"[NPC] (greeting): {npc_reply}")
                 npc_greeted = True
                 print(Fore.YELLOW + "\nHow will you address the figure?\n" + Style.RESET_ALL)
                 d_opt = choose("Choose:", DIALOGUE_OPTIONS)
             else:
                 print(Fore.YELLOW + "\nHow will you address the figure?\n" + Style.RESET_ALL)
                 d_opt = choose("Choose:", DIALOGUE_OPTIONS)
-                stop_event = show_loading_spinner("NPC is thinking...")
-                result_holder = {}
-                bg_event = threading.Event()
-                t = threading.Thread(target=get_npc_response_bg, args=(maze, d_opt, curr_room, log, result_holder, bg_event))
+                # --- Streaming output for follow-up dialogue with debug and timeout ---
+                prompt = maze._gen_npc(curr_room.description, d_opt, log)[0]
+                stop_event = threading.Event()
+                first_token = [False]
+                token_received = [False]
+                def spinner():
+                    sp = itertools.cycle(['|', '/', '-', '\\'])
+                    start_time = time.time()
+                    while not stop_event.is_set() and not first_token[0]:
+                        sys.stdout.write(Fore.YELLOW + "\rNPC is thinking... " + next(sp) + Style.RESET_ALL)
+                        sys.stdout.flush()
+                        time.sleep(0.07)
+                        if time.time() - start_time > 10:
+                            stop_event.set()
+                    sys.stdout.write('\r' + ' ' * 40 + '\r')
+                    sys.stdout.flush()
+                t = threading.Thread(target=spinner)
                 t.start()
-                while not bg_event.is_set():
-                    time.sleep(0.05)
-                stop_event.set()
-                npc_reply = result_holder.get('npc_reply', '')
-                npc_mem = result_holder.get('npc_mem', '')
-                print(Fore.MAGENTA + "NPC: " + Style.BRIGHT + npc_reply + Style.RESET_ALL)
-                log.append(f"[Player] asked: '{dict(DIALOGUE_OPTIONS)[d_opt]}' – [NPC] replied: {npc_reply}")
-                if npc_mem:
-                    log.append(f"  (NPC remembered: {npc_mem})")
+                reply_buf = []
+                try:
+                    for token in streaming_query_npc(prompt):
+                        token_received[0] = True
+                        if not first_token[0]:
+                            first_token[0] = True
+                            stop_event.set()
+                            t.join()
+                            print(Fore.MAGENTA + "NPC: " + Style.BRIGHT, end="")
+                            sys.stdout.flush()
+                        sys.stdout.write(token)
+                        sys.stdout.flush()
+                        reply_buf.append(token)
+                        time.sleep(0.025)
+                except Exception as e:
+                    stop_event.set()
+                    t.join()
+                    print(Fore.RED + f"\n[ERROR] Streaming failed: {e}" + Style.RESET_ALL)
+                if not token_received[0]:
+                    stop_event.set()
+                    t.join()
+                    print(Fore.RED + "\n[ERROR] No AI output received. (Is the model running? Is streaming_query_npc working?)" + Style.RESET_ALL)
+                    print(Fore.YELLOW + "Falling back to slow/blocking mode..." + Style.RESET_ALL)
+                    stop_event = show_loading_spinner("NPC is thinking...")
+                    result_holder = {}
+                    bg_event = threading.Event()
+                    t2 = threading.Thread(target=get_npc_response_bg, args=(maze, d_opt, curr_room, log, result_holder, bg_event))
+                    t2.start()
+                    t2.join(timeout=8)
+                    stop_event.set()
+                    npc_reply = result_holder.get('npc_reply', '')
+                    print(Fore.MAGENTA + "NPC: " + Style.BRIGHT + npc_reply + Style.RESET_ALL)
+                    log.append(f"[Player] asked: '{dict(DIALOGUE_OPTIONS)[d_opt]}' – [NPC] replied: {npc_reply}")
+                else:
+                    print(Style.RESET_ALL)
+                    npc_reply = ''.join(reply_buf)
+                    log.append(f"[Player] asked: '{dict(DIALOGUE_OPTIONS)[d_opt]}' – [NPC] replied: {npc_reply}")
                 print(Fore.YELLOW + "\nHow do you feel about this exchange?\n" + Style.RESET_ALL)
                 stop_event = show_loading_spinner("Recording your reaction...")
                 fb = choose("React:", FEEDBACK_OPTIONS)
@@ -360,8 +455,7 @@ def main():
             bg_event = threading.Event()
             t = threading.Thread(target=get_npc_response_bg, args=(maze, d_opt, curr_room, log, result_holder, bg_event))
             t.start()
-            while not bg_event.is_set():
-                time.sleep(0.05)
+            t.join(timeout=8)  # Wait up to 8s for LLM, then continue
             stop_event.set()
             npc_reply = result_holder.get('npc_reply', '')
             npc_mem = result_holder.get('npc_mem', '')

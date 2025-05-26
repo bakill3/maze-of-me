@@ -47,13 +47,14 @@ def build_npc_prompt(
     """
     Prompt for **The Whisperer** (NPC) -- with memory, emotion, and contact intent.
     """
-    # Restore richer context for realism
+    # Aggressively truncate for speed
     if isinstance(player_history, list):
-        player_history = player_history[-3:]
+        player_history = player_history[-2:]
         player_history = " | ".join(player_history)
     if isinstance(player_emotions, list):
-        player_emotions = player_emotions[-5:]
-    # Use all contacts and hooks for realism
+        player_emotions = player_emotions[-2:]
+    if isinstance(contacts, list):
+        contacts = contacts[-2:]
     recent_emotions = ", ".join(player_emotions or []) or "none"
     contacts_line = ", ".join(contacts or [])
     sys_msg = dedent(f"""

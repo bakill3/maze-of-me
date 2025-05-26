@@ -15,9 +15,12 @@ for p in (RAW, WAV): p.mkdir(parents=True, exist_ok=True)
 YDL_OPTS = {
     "format": "bestaudio/best",
     "quiet": True,
+    "no_warnings": True,
     "outtmpl": str(RAW / "%(id)s.%(ext)s"),
     "noplaylist": True,
     "cachedir": False,
+    "progress_hooks": [lambda d: None],  # Suppress progress hooks
+    "logger": type("SilentLogger", (), {"debug": lambda self, msg: None, "warning": lambda self, msg: None, "error": lambda self, msg: None})(),
 }
 
 EMOTION_PLAYLIST = {
@@ -100,11 +103,21 @@ class AudioPlayer:
 
     def preload_track(self, idx, tracks, buf, q, done, feats=None):
         try:
-            if idx in done or idx in buf: return
+            if idx in done or idx in buf:
+                return
+            # Check if file already exists in cache
             t = tracks[idx]
+            src_path = RAW / f"{t['id']}.webm"
+            wav_path = WAV / f"{t['id']}.wav"
+            if wav_path.exists():
+                buf[idx] = wav_path
+                q.append(idx)
+                return
+            # Download and convert if not cached
             src = self.download_youtube(t["artists"][0], t["name"])
             wav = self.convert_to_wav(src)
-            buf[idx] = wav; q.append(idx)
+            buf[idx] = wav
+            q.append(idx)
         except Exception as e:
             print("[WARN] Preload failed:", e)
             return

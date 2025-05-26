@@ -188,6 +188,8 @@ class MazeGenerator:
             furniture  = furniture,
             wall_color = self._rand(color_list),
         )
+        # Capitalize first letter for robustness
+        desc = desc[0].upper() + desc[1:] if desc else desc
         # --- Inventory/Item logic ---
         items = []
         # Add themed items from user data
