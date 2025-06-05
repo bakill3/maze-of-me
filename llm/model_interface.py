@@ -25,10 +25,12 @@ if not MODEL_PATH.exists():
     )
 
 # Use a safe, low context window and thread count for Windows stability
+# Leverage available CPU cores and a slightly larger context window on modern
+# hardware. This improves generation quality without sacrificing too much speed.
 _llm = Llama(
     model_path=str(MODEL_PATH),
-    n_ctx=768,  # Lower context window for even faster response
-    n_threads=4, # More threads for more speed (tune for your CPU)
+    n_ctx=1024,
+    n_threads=os.cpu_count() or 4,
     verbose=False,
 )
 
@@ -90,7 +92,11 @@ def streaming_query_npc(prompt: str, max_tokens: int = 100, temperature: float =
                     got_chunk = True
                     yield token
             if not got_chunk:
-                yield "[NO CHUNKS]"
+                fallback = _run(prompt, max_tokens, temperature)
+                if fallback:
+                    yield fallback
+                else:
+                    yield "[NO CHUNKS]"
     except Exception as e:
         print(f"[ERROR] Streaming Llama model inference failed: {e}")
         yield "[AI error]"
