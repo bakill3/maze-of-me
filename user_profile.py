@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Final
+from typing import Optional
 
 _FILE: Final[Path] = Path(__file__).parent / "user_profile.json"
 
@@ -31,3 +32,13 @@ class UserProfile(dict):
 
     def save(self) -> None:
         _FILE.write_text(json.dumps(self, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def get_user_profile() -> Optional[dict]:
+    """Return the entire user profile data dictionary if available."""
+    if _FILE.exists():
+        try:
+            return json.loads(_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}

@@ -204,6 +204,7 @@ def main():
                 time.sleep(0.07)
             sys.stdout.write('\r' + ' ' * 40 + '\r')
             sys.stdout.flush()
+            print()
         t = threading.Thread(target=spinner)
         t.start()
         return stop_event
@@ -338,6 +339,8 @@ def main():
                             stop_event.set()
                     sys.stdout.write('\r' + ' ' * 40 + '\r')
                     sys.stdout.flush()
+                    print()
+                    print()
                 t = threading.Thread(target=spinner)
                 t.start()
                 reply_buf = []

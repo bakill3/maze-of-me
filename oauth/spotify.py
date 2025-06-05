@@ -16,7 +16,7 @@ from utils.json_io import load_json, save_json
 
 
 _REDIRECT_URI: Final[str] = "http://127.0.0.1:8888/spotify_callback"
-_SCOPES:        Final[list[str]] = ["user-top-read"]
+_SCOPES:        Final[list[str]] = ["user-top-read", "user-read-recently-played"]
 _AUTH:          Final[str] = "https://accounts.spotify.com/authorize"
 _TOKEN:         Final[str] = "https://accounts.spotify.com/api/token"
 
@@ -163,6 +163,13 @@ class SpotifyCollector:
         except Exception:
             liked_tracks = []
 
+        # Recently played tracks
+        try:
+            recent_resp = self._api_get("me/player/recently-played", {"limit": 5})
+            recent_tracks = [t['track']['name'] for t in recent_resp.get('items', [])]
+        except Exception:
+            recent_tracks = []
+
         # merge into profile JSON    
         prof = load_json(Path(Config.PROFILE_PATH))
         prof["spotify"] = {
@@ -171,6 +178,7 @@ class SpotifyCollector:
             "playlists": playlist_names,
             "genres": genres,
             "top_artist": top_artist,
-            "liked_tracks": liked_tracks
+            "liked_tracks": liked_tracks,
+            "recent_tracks": recent_tracks
         }
         save_json(Path(Config.PROFILE_PATH), prof)
