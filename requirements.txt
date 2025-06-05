@@ -5,9 +5,7 @@ requests-oauthlib
 facebook-sdk
 pygame
 pydub
-simpleaudio
 llama-cpp-python
-google-auth-oauthlib>=0.8.0
+google-auth-oauthlib
 colorama
-google-api-python-client
-yt-dlp
+# no simpleaudio
