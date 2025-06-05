@@ -12,6 +12,10 @@ import threading
 from functools import lru_cache
 import hashlib
 import re
+import random
+from typing import Dict, Set
+
+from utils.parsers import get_random_personal_ref
 
 MODEL_NAME = "Phi-3-mini-4k-instruct-q4.gguf"
 MODEL_PATH = Config.MODELS_DIR / MODEL_NAME
@@ -105,3 +109,54 @@ def streaming_query_npc(prompt: str, max_tokens: int = 100, temperature: float =
     except Exception as e:
         print(f"[ERROR] Streaming Llama model inference failed: {e}")
         yield "[AI error]"
+
+
+_GENRE_TONES = {
+    "folk": "nostalgic",
+    "rap": "assertive",
+    "hip hop": "assertive",
+    "house": "upbeat",
+    "dance": "upbeat",
+    "rock": "intense",
+    "metal": "intense",
+    "classical": "thoughtful",
+    "jazz": "smooth",
+    "blues": "melancholic",
+}
+
+
+def _tone_from_genres(genres):
+    for g in genres:
+        g = g.lower()
+        for key, tone in _GENRE_TONES.items():
+            if key in g:
+                return tone
+    return "mysterious"
+
+
+def generate_npc_reply(user_input: str, user_data: Dict, memory: Dict) -> str:
+    """Generate a short NPC reply referencing user data and genre tone."""
+    used = memory.setdefault("used_refs", set())
+
+    ref = get_random_personal_ref(user_data, used)
+    if ref:
+        used.add(ref)
+
+    genres = user_data.get("spotify", {}).get("genres", [])
+    tone = _tone_from_genres(genres)
+
+    prompt = (
+        "### SYSTEM ###\n"
+        f"You are The Whisperer, speaking in a {tone} tone. "
+        "Blend the provided personal detail naturally. "
+        "Respond in one immersive sentence, max 26 words. End with <END>.\n"
+        "### USER ###\n"
+        f"Player said: '{user_input.strip()}'\n"
+    )
+    if ref:
+        prompt += f"Reference: {ref}\n"
+    prompt += "### ASSISTANT ###\n"
+
+    reply = _run(prompt, max_tokens=60, temperature=0.9)
+    reply = reply.replace("<END>", "").strip()
+    return reply or FALLBACK_NPC
