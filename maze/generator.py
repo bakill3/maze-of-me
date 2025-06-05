@@ -81,6 +81,7 @@ class MazeGenerator:
         self._genres = self.pro.get("spotify", {}).get("genres", [])
         self._top_artist = self.pro.get("spotify", {}).get("top_artist", "")
         self._liked_tracks = self.pro.get("spotify", {}).get("liked_tracks", [])
+        self._recent_tracks = self.pro.get("spotify", {}).get("recent_tracks", [])
 
         # Load contacts (names only for hooks)
         try:
@@ -174,6 +175,7 @@ class MazeGenerator:
         if self._genres: hooks.append(self._genres[0])
         if self._top_artist: hooks.append(self._top_artist)
         if self._liked_tracks: hooks.append(self._liked_tracks[0])
+        if self._recent_tracks: hooks.append(self._recent_tracks[0])
         hooks = [h for h in hooks if h]
         hook = random.choice(hooks) if hooks else "something unsaid"
 
@@ -438,9 +440,11 @@ class MazeGenerator:
         # Top artist
         if self._top_artist:
             hooks["artist"] = self._top_artist
-        # Liked track
+        # Liked or recent track
         if self._liked_tracks:
             hooks["track"] = self._liked_tracks[0]
+        elif self._recent_tracks:
+            hooks["track"] = self._recent_tracks[0]
         # YouTube video
         if hasattr(self, '_yt') and self._yt:
             hooks["ytvideo"] = self._yt[0]

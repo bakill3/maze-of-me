@@ -34,7 +34,7 @@ Players awake in a mysterious maze. The story and rooms reference your real-worl
   - Fetches: profile info, calendar events, YouTube watch history, **contacts (names, emails, birthdays), Gmail subjects (last 5), Google Tasks (top 10), and recently watched YouTube channels.**
   - All data is merged into your game profile and used for richer room/NPC generation.
 - **Spotify OAuth**  
-  - Collects: your top tracks, audio features (valence, energy), **top artists, favorite genres, liked tracks, and playlists.** All data is mapped to in-game moods and events for music and narrative context.
+  - Collects: your top tracks, recently played tracks, audio features (valence, energy), **top artists, favorite genres, liked tracks, and playlists.** All data is mapped to in-game moods and events for music and narrative context.
 
 ### ✅ Emotion-Aware AI Gameplay
 - **Procedural Maze & Room Generation**
