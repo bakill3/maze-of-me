@@ -66,6 +66,11 @@ Players awake in a mysterious maze. The story and rooms reference your real-worl
 - Help menu, graceful exits, and robust error handling.
 - Detailed logging of all interactions for transparency and debugging.
 
+### 🖥️ Performance Tuning
+- Set `LLAMA_THREADS`, `LLAMA_CTX`, and `LLAMA_GPU_LAYERS` environment variables
+  to tune the NPC model for your hardware. By default all CPU cores are used
+  with a 2048 token context window and 32 GPU layers.
+
 ---
 
 ## 🛠️ Tech Stack

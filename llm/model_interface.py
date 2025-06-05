@@ -11,6 +11,7 @@ from config import Config
 import threading
 from functools import lru_cache
 import hashlib
+import re
 
 MODEL_NAME = "Phi-3-mini-4k-instruct-q4.gguf"
 MODEL_PATH = Config.MODELS_DIR / MODEL_NAME
@@ -24,13 +25,13 @@ if not MODEL_PATH.exists():
         f"Please run 'download.bat' in the 'models' folder before starting the game.\n"
     )
 
-# Use a safe, low context window and thread count for Windows stability
-# Leverage available CPU cores and a slightly larger context window on modern
-# hardware. This improves generation quality without sacrificing too much speed.
+# High performance configuration tuned via environment variables. Uses all
+# available CPU cores and optional GPU layers for maximum speed on capable
+# hardware.
 _llm = Llama(
     model_path=str(MODEL_PATH),
-    n_ctx=1536,
-    n_threads=os.cpu_count() or 4,
+    n_ctx=Config.CTX_SIZE,
+    n_threads=Config.N_THREADS,
     n_gpu_layers=Config.GPU_LAYERS,
     verbose=False,
 )
@@ -89,7 +90,9 @@ def streaming_query_npc(prompt: str, max_tokens: int = 100, temperature: float =
                 stream=True
             ):
                 token = chunk["choices"][0]["text"].encode("ascii", "ignore").decode()
-                token = token.replace("from=\"", "").replace("to=\"", "").replace("djvu", "")
+                token = token.replace("from=\"", "").replace("to=\"", "")
+                token = token.replace("djvu", "")
+                token = re.sub(r"\[\d{1,3}\]", "", token)
                 if token.strip():
                     got_chunk = True
                     yield token

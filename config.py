@@ -15,8 +15,10 @@ class Config:
     MIN_WEIGHT_KG     = 30
     MAX_WEIGHT_KG     = 300
 
-    # GPU acceleration for llama.cpp
+    # Performance tuning for llama.cpp
     GPU_LAYERS        = int(os.getenv("LLAMA_GPU_LAYERS", "32"))
+    N_THREADS         = int(os.getenv("LLAMA_THREADS", str(os.cpu_count() or 4)))
+    CTX_SIZE          = int(os.getenv("LLAMA_CTX", "2048"))
 
     SPOTIFY_CLIENT_ID     = os.getenv("SPOTIFY_CLIENT_ID", "")
     SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
