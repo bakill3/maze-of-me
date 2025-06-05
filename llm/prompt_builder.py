@@ -42,7 +42,8 @@ def build_npc_prompt(
     dialogue_key: Optional[str] = None,
     player_history: Optional[str] = "",
     player_emotions: Optional[List[str]] = None,
-    contacts: Optional[List[str]] = None
+    contacts: Optional[List[str]] = None,
+    room_emotion: Optional[str] = None,
 ) -> str:
     """
     Prompt for **The Whisperer** (NPC) -- with memory, emotion, and contact intent.
@@ -57,6 +58,7 @@ def build_npc_prompt(
         contacts = contacts[-2:]
     recent_emotions = ", ".join(player_emotions or []) or "none"
     contacts_line = ", ".join(contacts or [])
+    rm_emotion = room_emotion or "neutral"
     sys_msg = dedent(f"""
         You are **The Whisperer**, a cryptic—but subtly human—figure in a psychological maze.
         Respond with exactly ONE mysterious, unsettling, or caring line (6-26 words).
@@ -64,6 +66,7 @@ def build_npc_prompt(
         The player just spoke to you with intent: '{dialogue_key or ""}'.
         List of player contacts: {contacts_line}
         Recent player emotions: {recent_emotions}
+        Current room emotion: {rm_emotion}
         Never break character. Never repeat the room description. End with <END>.
     """).strip()
     hook_block = "\n".join(f"<<{k}>> = {v}" for k, v in hooks.items()) if hooks else "(no hooks today)"
@@ -73,6 +76,7 @@ def build_npc_prompt(
         {hook_block}
         Current room description:
         "{last_room_desc}"
+        Room mood: {rm_emotion}
         Player last dialogue/action: "{dialogue_key or 'none'}"
         Previous interaction: "{player_history or 'none'}"
         Your single mysterious sentence:

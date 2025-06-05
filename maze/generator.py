@@ -4,55 +4,12 @@
 from __future__ import annotations
 import random, datetime as _dt, threading
 from typing     import Optional, Deque, List
-from pathlib    import Path
 from collections import deque
 
 from llm.model_interface import query_npc
 from llm.prompt_builder  import build_npc_prompt, validate_npc_line
-from utils.json_io       import load_json
 from config              import Config
-
-ROOMS_FILE = Path(__file__).parent / "rooms.json"
-ROOMS = load_json(ROOMS_FILE) if ROOMS_FILE.exists() else {
-    "happy": [
-        [
-            "Sunbeams dance across {wall_color} walls and a {furniture}. Hope swells as memories of {hook} resurface.",
-            "A faint, upbeat melody echoes from the {furniture}—perhaps you remember {hook}?",
-            "The scent of citrus lingers, and somewhere, a calendar reminder for {hook} whispers from the corners.",
-        ],
-        ["plush sofa", "vintage jukebox", "beanbag"],
-        ["honey yellow", "peach", "warm cream"],
-    ],
-    "sad": [
-        [
-            "Muted {wall_color} walls press inwards. A lone {furniture} creaks. Drips echo the countdown to {hook}.",
-            "Your footsteps echo like memories you'd rather forget—was it {hook}?",
-            "Rain taps the {furniture}. The air is thick with something left unsaid: {hook}.",
-        ],
-        ["rocking chair", "dusty piano", "torn loveseat"],
-        ["washed-out blue", "ashen grey", "cold teal"],
-    ],
-    "angry": [
-        [
-            "Ragged shadows slash the {wall_color} walls; a {furniture} rattles. Your pulse matches the room’s fury at {hook}.",
-            "Something overturned the {furniture}. Was it anger about {hook}?",
-            "The air burns, the {furniture} looks battered—did you remember {hook}?",
-        ],
-        ["metal desk", "barred window", "shattered mirror"],
-        ["scarlet", "burnt umber", "dark crimson"],
-    ],
-    "neutral": [
-        [
-            "Bare {wall_color} walls and a simple {furniture}. Silence reigns—only {hook} remains.",
-            "A corridor of smooth {wall_color} stretches ahead. {hook} lingers in the quiet air.",
-            "The {furniture} waits, perfectly centered. The maze itself seems to pause for {hook}.",
-        ],
-        ["wooden stool", "plain cot", "unmarked door"],
-        ["bone white", "pale beige", "soft grey"],
-    ],
-}
-
-EMOTIONS        = list(ROOMS.keys())
+from .rooms              import random_room_elements, EMOTIONS
 ROOM_CACHE_SIZE = 40
 NPC_CACHE_SIZE  = 30
 NPC_RETRIES     = 7
@@ -151,8 +108,6 @@ class MazeGenerator:
         self._last_dialogue: Optional[str] = None
         self._bg_thread: Optional[threading.Thread] = None
         self._next_room, self._next_npc = self._build_pair_blocking()
-
-    def _rand(self, seq): return random.choice(seq)
     
     def set_progress(self, visited, moods):
         self._visited = visited
@@ -179,16 +134,14 @@ class MazeGenerator:
         hooks = [h for h in hooks if h]
         hook = random.choice(hooks) if hooks else "something unsaid"
 
-        tpl_list, furn_list, color_list = ROOMS[mood]
-        tpl = random.choice(tpl_list)
-        furniture = self._rand(furn_list)
+        tpl, furniture, wall_color = random_room_elements(mood, self._room_counter)
         desc = tpl.format(
             name       = self.pro.get("google", {}).get("profile", {}).get("given_name", "You"),
             hook       = hook,
             event      = self._today or "—",
             contact    = random.choice(self._contacts) if self._contacts else "someone",
             furniture  = furniture,
-            wall_color = self._rand(color_list),
+            wall_color = wall_color,
         )
         # Capitalize first letter for robustness
         desc = desc[0].upper() + desc[1:] if desc else desc
@@ -259,7 +212,7 @@ class MazeGenerator:
             return Room(desc, "dream", "echoing object", ["YouTube memory"])
         return Room("A surreal, shifting space. You feel a memory trying to surface.", "dream", "blurred object", ["Unknown memory"])
 
-    def _gen_npc(self, room_desc: str, dialogue_key=None, log=None) -> tuple[str, str]:
+    def _gen_npc(self, room_desc: str, room_emotion: str | None = None, dialogue_key=None, log=None) -> tuple[str, str]:
         history_snippet = ""
         if log:
             for l in reversed(log):
@@ -286,8 +239,14 @@ class MazeGenerator:
             history_snippet = intro
         for _ in range(NPC_RETRIES):
             prompt = build_npc_prompt(
-                self.pro, room_desc, hooks, str(dialogue_key) if dialogue_key else "", history_snippet,
-                player_emotions=player_emotions, contacts=self._contacts
+                self.pro,
+                room_desc,
+                hooks,
+                str(dialogue_key) if dialogue_key else "",
+                history_snippet,
+                player_emotions=player_emotions,
+                contacts=self._contacts,
+                room_emotion=room_emotion,
             )
             raw  = query_npc(prompt)
             line = validate_npc_line(raw, hooks, player_emotions=player_emotions, contacts=self._contacts)
@@ -301,7 +260,7 @@ class MazeGenerator:
 
     def _build_pair(self) -> tuple[Room, str]:
         r = self._unique_room()
-        n, _ = self._gen_npc(r.description)
+        n, _ = self._gen_npc(r.description, r.theme)
         return r, n
 
     def _build_pair_blocking(self):
@@ -336,6 +295,7 @@ class MazeGenerator:
     def talk_with_context(self, dialogue_key, curr_room, log=None):
         npc_line, npc_mem = self._gen_npc(
             curr_room.description if curr_room else "A blank room.",
+            curr_room.theme if curr_room else None,
             dialogue_key,
             log,
         )
@@ -354,6 +314,7 @@ class MazeGenerator:
         prompt_key = f"inspect:{furniture}"
         npc_line, _ = self._gen_npc(
             f"You look closely at the {furniture}.",
+            self._curr_room.theme if self._curr_room else None,
             prompt_key,
             list(self._recent_dialogues),
         )

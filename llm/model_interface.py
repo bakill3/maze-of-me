@@ -66,6 +66,7 @@ def _run(prompt: str, max_tokens: int, temperature: float) -> str:
         with LLM_LOCK:
             res = _llm(prompt=prompt, max_tokens=max_tokens, temperature=temperature, stop=STOP)
         text = res["choices"][0]["text"].strip()
+        text = _clean_output(text)
         if text:
             _llm_cache[cache_key] = text
         return text
@@ -97,6 +98,7 @@ def streaming_query_npc(prompt: str, max_tokens: int = 100, temperature: float =
                 token = token.replace("from=\"", "").replace("to=\"", "")
                 token = token.replace("djvu", "")
                 token = re.sub(r"\[\d{1,3}\]", "", token)
+                token = re.sub(r"<!--.*?-->", "", token)
                 if token.strip():
                     got_chunk = True
                     yield token
@@ -134,6 +136,17 @@ def _tone_from_genres(genres):
     return "mysterious"
 
 
+_ARTIFACT_RE = re.compile(r"(?:<!--.*?-->|### .*?###|Assistant:|USER:|SYSTEM:)", re.IGNORECASE)
+
+
+def _clean_output(text: str) -> str:
+    """Remove common instruction artifacts from LLM output."""
+    text = _ARTIFACT_RE.sub("", text)
+    text = text.replace("NPC:", "").replace("\n\n", "\n")
+    text = text.strip()
+    return text
+
+
 def generate_npc_reply(user_input: str, user_data: Dict, memory: Dict) -> str:
     """Generate a short NPC reply referencing user data and genre tone."""
     used = memory.setdefault("used_refs", set())
@@ -158,5 +171,6 @@ def generate_npc_reply(user_input: str, user_data: Dict, memory: Dict) -> str:
     prompt += "### ASSISTANT ###\n"
 
     reply = _run(prompt, max_tokens=60, temperature=0.9)
-    reply = reply.replace("<END>", "").strip()
+    reply = reply.replace("<END>", "")
+    reply = _clean_output(reply)
     return reply or FALLBACK_NPC
