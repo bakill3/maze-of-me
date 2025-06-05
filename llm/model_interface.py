@@ -29,8 +29,9 @@ if not MODEL_PATH.exists():
 # hardware. This improves generation quality without sacrificing too much speed.
 _llm = Llama(
     model_path=str(MODEL_PATH),
-    n_ctx=1024,
+    n_ctx=1536,
     n_threads=os.cpu_count() or 4,
+    n_gpu_layers=Config.GPU_LAYERS,
     verbose=False,
 )
 
@@ -87,8 +88,9 @@ def streaming_query_npc(prompt: str, max_tokens: int = 100, temperature: float =
                 stop=STOP,
                 stream=True
             ):
-                token = chunk["choices"][0]["text"]
-                if token:
+                token = chunk["choices"][0]["text"].encode("ascii", "ignore").decode()
+                token = token.replace("from=\"", "").replace("to=\"", "").replace("djvu", "")
+                if token.strip():
                     got_chunk = True
                     yield token
             if not got_chunk:
