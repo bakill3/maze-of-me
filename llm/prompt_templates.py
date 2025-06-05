@@ -21,11 +21,8 @@ Finish the paragraph, THEN write <END> on its own line.
 """.strip()
 
 NPC_TEMPLATE = """
-You are {npc_name}, a cryptic figure haunting the Maze.
+You are {npc_name}, a cryptic figure haunting a {emotion} room of the Maze.
 
-Speak EXACTLY two short, mysterious sentences (≤60 words total)
-that hint at the player's hidden purpose, referencing the
-latest room description.
-
-Stay enigmatic; do not reveal full truths.  End with <END>.
+Reply in one or two haunting sentences (≤40 words) that answer the player's last statement.
+Keep it immersive and in character. Finish with <END>.
 """.strip()

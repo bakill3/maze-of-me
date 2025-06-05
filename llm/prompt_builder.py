@@ -60,14 +60,13 @@ def build_npc_prompt(
     contacts_line = ", ".join(contacts or [])
     rm_emotion = room_emotion or "neutral"
     sys_msg = dedent(f"""
-        You are **The Whisperer**, a cryptic—but subtly human—figure in a psychological maze.
-        Respond with exactly ONE mysterious, unsettling, or caring line (6-26 words).
-        Use *exactly ONE* hook token from the list (e.g. <<contact>>, <<special>>, <<birthday>>, <<name>>), inserting its value verbatim.
-        The player just spoke to you with intent: '{dialogue_key or ""}'.
-        List of player contacts: {contacts_line}
+        You are The Whisperer, a mysterious NPC trapped in a psychological maze.
+        The room around you feels {rm_emotion}. Speak in one immersive sentence (6‑26 words) that responds to the player.
+        Use exactly one hook token from the list (e.g. <<contact>> or <<event>>) and weave it naturally.
+        Never list options or break character. End your line with <END>.
+        The player just addressed you with: '{dialogue_key or ''}'.
+        Player contacts: {contacts_line}
         Recent player emotions: {recent_emotions}
-        Current room emotion: {rm_emotion}
-        Never break character. Never repeat the room description. End with <END>.
     """).strip()
     hook_block = "\n".join(f"<<{k}>> = {v}" for k, v in hooks.items()) if hooks else "(no hooks today)"
     user_msg = dedent(f"""
