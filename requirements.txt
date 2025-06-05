@@ -9,3 +9,5 @@ simpleaudio
 llama-cpp-python
 google-auth-oauthlib>=0.8.0
 colorama
+google-api-python-client
+yt-dlp
