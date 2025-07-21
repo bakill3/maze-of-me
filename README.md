@@ -14,7 +14,7 @@ OAuth logins (Spotify, Google, with Facebook & Instagram coming soon) bring in r
 
 ## Game Showcase
 
-https://github.com/user-attachments/assets/490cff18-db04-40df-bba9-e7dd57f322e3
+[Watch the demo video](https://github.com/user-attachments/assets/d4413b68-8fca-4a8d-96b0-7f5cc9a4f602)
 
 ---
 
