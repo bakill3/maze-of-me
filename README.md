@@ -12,6 +12,12 @@ OAuth logins (Spotify, Google, with Facebook & Instagram coming soon) bring in r
 
 ---
 
+## Game Showcase
+
+https://github.com/user-attachments/assets/490cff18-db04-40df-bba9-e7dd57f322e3
+
+---
+
 ## 🧩 Game Concept and Structure
 
 Players awake in a mysterious maze. The story and rooms reference your real-world data, events, moods, and contacts, integrating your digital and emotional life into an interactive psychological narrative:
@@ -194,10 +200,6 @@ graph TD
   Future --> NPCFriends
   Future --> WebUI
 ```
-
-## Alpha version (spotify auth + random music playlists on each room)
-
-https://github.com/user-attachments/assets/490cff18-db04-40df-bba9-e7dd57f322e3
 
 ---
 
