@@ -281,10 +281,14 @@ Maze of Me is open to your ideas!
 Open an issue, fork the repo, or contact the maintainer to contribute.
 ---
 
-## ©️ License
+## License
 
-The license will be finalized before public release.
-All rights reserved by the author.
+This project is licensed under a **Proprietary License**.  
+All rights reserved © 2025 Gabriel Deodato Leite Brandão.
+
+This protection extends beyond the current codebase to encompass the entire concept and planned innovations—including emotion-driven room and music systems, data integrations (Spotify, Google, YouTube, Gmail, Tasks, Contacts), memory-enabled AI NPCs, personalized narrative mechanics, and envisioned extensions such as NPCs modeled on real people, multiplayer, 2D/3D/VR/AR versions, Web UI, plus both local and cloud-based AI processing.
+
+For full terms, refer to the [LICENSE](./LICENSE) file.
 
 ---
 
