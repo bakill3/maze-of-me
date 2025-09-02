@@ -18,6 +18,24 @@ OAuth logins (Spotify, Google, with Facebook & Instagram coming soon) bring in r
 
 ---
 
+## 🌟 Recognition & Community Feedback
+
+Maze of Me has sparked strong community interest:
+
+- 🏆 **Praised by Meta for Developers** on Reddit  
+  > *"Our only feedback here is how amazing this sounds 💙 Please keep us updated on your progress u/bakill717!"*  
+
+- 🌍 Featured across multiple Reddit communities, including **r/Python**, **r/MachineLearning**, **r/gamedev** reaching over **50,000+ views** in 7 days.
+
+<table>
+  <tr>
+    <td><img src="docs/meta_1.jpg" alt="Meta for Developers Feedback" width="400"/></td>
+    <td><img src="docs/meta_2.jpg" alt="Meta for Developers Profile" width="400"/></td>
+  </tr>
+</table>
+
+---
+
 ## 🧩 Game Concept and Structure
 
 Players awake in a mysterious maze. The story and rooms reference your real-world data, events, moods, and contacts, integrating your digital and emotional life into an interactive psychological narrative:
