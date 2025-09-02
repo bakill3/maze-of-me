@@ -29,8 +29,8 @@ Maze of Me has sparked strong community interest:
 
 <table>
   <tr>
-    <td><img src="docs/meta_1.jpg" alt="Meta for Developers Feedback" width="400"/></td>
-    <td><img src="docs/meta_2.jpg" alt="Meta for Developers Profile" width="400"/></td>
+    <td><img src="docs/meta_1.jpeg" alt="Meta for Developers Feedback" width="400"/></td>
+    <td><img src="docs/meta_2.jpeg" alt="Meta for Developers Profile" width="400"/></td>
   </tr>
 </table>
 
