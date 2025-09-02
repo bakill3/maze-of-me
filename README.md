@@ -10,14 +10,6 @@
 
 ---
 
-## 📖 Overview
-
-**Maze of Me** is a command-line psychological adventure where your digital self is the foundation for a unique, emotional narrative. The game adapts to your profile, calendar, moods, and social connections, creating a different journey every session. Navigate a procedurally generated text maze, meet AI figures who remember your feelings and contacts, and discover how your online presence shapes your subconscious world.
-
-OAuth logins (Spotify, Google, with Facebook & Instagram coming soon) bring in real data to create an interactive and personal experience.
-
----
-
 ## 🌟 Recognition & Community Feedback
 
 Maze of Me has sparked strong community interest:
@@ -33,6 +25,14 @@ Maze of Me has sparked strong community interest:
     <td><img src="docs/meta_2.jpeg" alt="Meta for Developers Profile" width="400"/></td>
   </tr>
 </table>
+
+---
+
+## 📖 Overview
+
+**Maze of Me** is a command-line psychological adventure where your digital self is the foundation for a unique, emotional narrative. The game adapts to your profile, calendar, moods, and social connections, creating a different journey every session. Navigate a procedurally generated text maze, meet AI figures who remember your feelings and contacts, and discover how your online presence shapes your subconscious world.
+
+OAuth logins (Spotify, Google, with Facebook & Instagram coming soon) bring in real data to create an interactive and personal experience.
 
 ---
 
